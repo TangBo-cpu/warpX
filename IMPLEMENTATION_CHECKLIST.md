@@ -425,16 +425,54 @@ type Session = {
 
 ## 11. 当前最高优先级任务
 
-现在不要先搭完整项目架构。
+当前已完成：
 
-先做：
+- M0 PTY backend spike：PASS，选定 `portable-pty`。
+- M1 第一片：单个内嵌 `pwsh.exe` 终端。
+- M1 第二片：单终端日常可用性补强，包括 Ctrl+L、Copy/Paste 按钮、Ctrl+Shift+C、Ctrl+Shift+V、关闭确认、`pwsh.exe`/cwd 启动诊断。
+
+当前功能 worktree：
 
 ```text
-T1: M0 PTY backend spike
+.claude/worktrees/feature-m1-terminal-usability
 ```
 
-完成 T1 后再决定：
+继续开发前先确认或合并这个 worktree 中的变更。后续每个新功能必须先创建独立 git worktree，再开始实现。
+
+下一步优先级：
+
+1. **M1 手动 GUI QA**
+   - 打开 Tauri 窗口。
+   - 点击 `Start pwsh`。
+   - 验证 `Get-Location`、`dir`、中文输入、长命令 + Ctrl+C。
+   - 验证 Clear / Ctrl+L。
+   - 验证 Copy 按钮、Paste 按钮、Ctrl+Shift+C、Ctrl+Shift+V。
+   - 验证 Close 确认弹窗和 process tree cleanup。
+
+2. **M2 多 session sidebar**
+   - 创建多个独立 PowerShell session。
+   - 左侧 session list/sidebar。
+   - 单主终端区域。
+   - session 切换时不串输出。
+   - 关闭单个 session 不影响其他 session。
+
+3. **M2 session 生命周期事件**
+   - 后端 reader EOF 或 shell 退出时 emit `pty-exit` / `pty-closed`。
+   - 前端收到后同步 `started=false` / `exited` 状态。
+   - 避免 shell 自然退出后 UI 仍显示 running。
+
+4. **M3 Claude Code / Codex 进程检测**
+   - poll PowerShell process tree。
+   - 识别 Claude Code / Codex / unknown。
+   - `node.exe` 只作为弱证据，不能单独 positive match。
+
+5. **M4 基础状态识别和 Session Card**
+   - rolling output buffer。
+   - 保守状态匹配。
+   - Session Card 显示 agent kind、status、statusReason。
+
+建议新对话继续时先说：
 
 ```text
-是否进入 M1 正式单终端实现。
+请从 WrapX 的 IMPLEMENTATION_CHECKLIST.md 当前最高优先级任务继续。先检查 feature-m1-terminal-usability worktree 的变更和 README 交接，再做 M1 手动 GUI QA 或进入 M2，多功能开发前先开新 worktree。
 ```

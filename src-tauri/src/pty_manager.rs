@@ -1,4 +1,5 @@
 use portable_pty::{native_pty_system, Child, CommandBuilder, MasterPty, PtySize};
+use std::env;
 use std::io::{Read, Write};
 use std::path::PathBuf;
 use std::sync::Mutex;
@@ -42,10 +43,14 @@ impl PtySession {
 
 impl PtyState {
     pub fn start(&self, cwd: PathBuf, cols: u16, rows: u16) -> Result<StartedPty, String> {
+        if cwd.as_os_str().is_empty() {
+            return Err("cwd is required".to_string());
+        }
         if !cwd.is_dir() {
             return Err(format!("cwd does not exist: {}", cwd.display()));
         }
 
+        let shell = resolve_pwsh()?;
         let pty_system = native_pty_system();
         let pair = pty_system
             .openpty(PtySize {
@@ -56,10 +61,13 @@ impl PtyState {
             })
             .map_err(to_error_string)?;
 
-        let mut command = CommandBuilder::new("pwsh.exe");
+        let mut command = CommandBuilder::new(shell);
         command.cwd(cwd);
 
-        let child = pair.slave.spawn_command(command).map_err(to_error_string)?;
+        let child = pair
+            .slave
+            .spawn_command(command)
+            .map_err(|error| format!("failed to start pwsh.exe: {error}"))?;
         let pid = child.process_id();
         let reader = pair.master.try_clone_reader().map_err(to_error_string)?;
         let writer = pair.master.take_writer().map_err(to_error_string)?;
@@ -129,6 +137,24 @@ impl PtyState {
 
         Ok(())
     }
+}
+
+fn resolve_pwsh() -> Result<PathBuf, String> {
+    let program = if cfg!(windows) { "pwsh.exe" } else { "pwsh" };
+    let path = env::var_os("PATH").ok_or_else(|| {
+        format!("{program} was not found because PATH is not set. Install PowerShell 7 or add {program} to PATH.")
+    })?;
+
+    for directory in env::split_paths(&path) {
+        let candidate = directory.join(program);
+        if candidate.is_file() {
+            return Ok(candidate);
+        }
+    }
+
+    Err(format!(
+        "{program} was not found on PATH. Install PowerShell 7 or add {program} to PATH."
+    ))
 }
 
 fn to_error_string(error: impl std::fmt::Display) -> String {

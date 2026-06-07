@@ -8,7 +8,15 @@ WrapX 是一个 Windows-first 的多 PowerShell / 多 CLI Agent GUI 控制台。
 WrapX = embedded PowerShell + multi-session sidebar + conservative agent status
 ```
 
-当前状态：planning / pre-alpha。
+当前状态：M1 single-terminal pre-alpha。
+
+已完成：
+
+- Tauri + React + xterm.js 桌面窗口。
+- Rust PTY backend 嵌入真实 `pwsh.exe`。
+- 单终端 start / write / resize / close。
+- M0 H1-H8 自动 smoke 测试通过。
+- M1 终端日常可用性补强：Ctrl+L、Copy/Paste 按钮、Ctrl+Shift+C、Ctrl+Shift+V、关闭确认、`pwsh.exe`/cwd 启动诊断。
 
 ## 为什么做
 
@@ -197,26 +205,63 @@ v1 默认限制：
 - Node.js LTS
 - Tauri prerequisites
 - Git
-- `pwsh.exe`
+- `pwsh.exe`，必须在 PATH 中
 - Claude Code CLI，可选但建议
 - Codex CLI，可选但建议
 - `jq`，建议安装，gstack 任务聚合会用到
 
-## 当前下一步
+## 本机开发启动
 
-不要先搭完整 app。
+前端和 Tauri 开发：
 
-先做：
-
-```text
-M0: PTY backend selection and single-terminal spike
+```powershell
+npm install
+npm run tauri:dev
 ```
 
-M0 通过后再进入：
+常用校验：
+
+```powershell
+npm run build
+```
+
+Rust/Tauri 校验需要 MSVC 环境。如果普通终端里 `cargo check` 找不到 MSVC linker，先打开 **x64 Native Tools Command Prompt for VS 2022**，或通过 `vcvars64.bat` 启动后再运行：
+
+```powershell
+cargo check --manifest-path src-tauri/Cargo.toml
+cargo test --manifest-path src-tauri/Cargo.toml --test pty_smoke -- --nocapture
+```
+
+本机已知问题：`tauri info` 可能无法通过 `vswhere` 检测到 MSVC，但在 MSVC 环境初始化后 `cargo check` / `cargo test` 可以正常作为校验入口。
+
+## 当前开发交接
+
+当前功能 worktree：
 
 ```text
-M1: embedded pwsh.exe terminal
+.claude/worktrees/feature-m1-terminal-usability
 ```
+
+继续开发前先确认或合并这个 worktree 中的变更。后续每个新功能都应先创建独立 git worktree，再开始实现。
+
+当前剩余验证：
+
+- 手动打开 Tauri 窗口。
+- 点击 `Start pwsh`。
+- 验证 `Get-Location`、`dir`、中文输入、长命令 + Ctrl+C。
+- 验证 Clear / Ctrl+L。
+- 验证 Copy 按钮、Paste 按钮、Ctrl+Shift+C、Ctrl+Shift+V。
+- 验证 Close 按钮会弹出确认，并清理对应 PowerShell 进程树。
+
+推荐下一批功能：
+
+1. **M1 手动 GUI QA**：确认当前单终端体验真实可用。
+2. **M2 多 session sidebar**：创建/切换/关闭多个独立 PowerShell session。
+3. **M2 session 生命周期事件**：补 `pty-exit` / `pty-closed`，避免 shell 自然退出后前端状态滞后。
+4. **M3 Claude Code / Codex 进程检测**。
+5. **M4 保守状态识别和 Session Card**。
+
+详见 [`IMPLEMENTATION_CHECKLIST.md`](./IMPLEMENTATION_CHECKLIST.md)。
 
 ## License
 

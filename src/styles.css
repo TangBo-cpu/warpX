@@ -83,6 +83,11 @@ input {
   background: #151923;
 }
 
+.terminal-actions {
+  display: flex;
+  gap: 8px;
+}
+
 .cwd-form {
   display: flex;
   min-width: 0;

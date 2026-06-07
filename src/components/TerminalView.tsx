@@ -21,9 +21,14 @@ export function TerminalView() {
   const terminalRef = useRef<Terminal | null>(null);
   const fitAddonRef = useRef<FitAddon | null>(null);
   const resizeObserverRef = useRef<ResizeObserver | null>(null);
+  const startedRef = useRef(false);
   const [cwd, setCwd] = useState(DEFAULT_CWD);
   const [started, setStarted] = useState(false);
   const [status, setStatus] = useState("idle");
+
+  useEffect(() => {
+    startedRef.current = started;
+  }, [started]);
 
   useEffect(() => {
     if (!hostRef.current) {
@@ -54,6 +59,33 @@ export function TerminalView() {
         terminal.writeln(`\r\n[wrapx] write failed: ${String(error)}`);
         setStatus("write failed");
       });
+    });
+
+    terminal.attachCustomKeyEventHandler((event) => {
+      if (event.type !== "keydown") {
+        return true;
+      }
+
+      const key = event.key.toLowerCase();
+      if (event.ctrlKey && !event.altKey && !event.metaKey && key === "l") {
+        event.preventDefault();
+        clearTerminalScreen(terminal);
+        return false;
+      }
+
+      if (event.ctrlKey && event.shiftKey && !event.altKey && !event.metaKey && key === "c") {
+        event.preventDefault();
+        void copyTerminalSelection(terminal);
+        return false;
+      }
+
+      if (event.ctrlKey && event.shiftKey && !event.altKey && !event.metaKey && key === "v") {
+        event.preventDefault();
+        void pasteClipboardText(terminal);
+        return false;
+      }
+
+      return true;
     });
 
     const resizeObserver = new ResizeObserver(() => {
@@ -118,6 +150,11 @@ export function TerminalView() {
 
   async function closePty() {
     const terminal = terminalRef.current;
+    if (started && !window.confirm("Close this PowerShell session and kill its process tree?")) {
+      terminal?.focus();
+      return;
+    }
+
     setStatus("closing...");
 
     try {
@@ -128,6 +165,91 @@ export function TerminalView() {
     } catch (error) {
       setStatus("close failed");
       terminal?.writeln(`\r\n[wrapx] close failed: ${String(error)}`);
+    }
+  }
+
+  function clearTerminal() {
+    const terminal = terminalRef.current;
+    if (!terminal) {
+      return;
+    }
+
+    clearTerminalScreen(terminal);
+    terminal.focus();
+  }
+
+  function clearTerminalScreen(terminal: Terminal) {
+    terminal.clear();
+    if (startedRef.current) {
+      void invoke("pty_write", { data: "\f" }).catch((error) => {
+        terminal.writeln(`\r\n[wrapx] clear failed: ${String(error)}`);
+        setStatus("clear failed");
+      });
+    }
+    setStatus("screen cleared");
+  }
+
+  async function copySelection() {
+    const terminal = terminalRef.current;
+    if (!terminal) {
+      return;
+    }
+
+    await copyTerminalSelection(terminal);
+    terminal.focus();
+  }
+
+  async function copyTerminalSelection(terminal: Terminal) {
+    const selection = terminal.getSelection();
+    if (!selection) {
+      setStatus("nothing selected");
+      return;
+    }
+
+    if (!navigator.clipboard?.writeText) {
+      setStatus("clipboard unavailable");
+      terminal.writeln("\r\n[wrapx] clipboard copy is unavailable in this WebView.");
+      return;
+    }
+
+    try {
+      await navigator.clipboard.writeText(selection);
+      setStatus("copied selection");
+    } catch (error) {
+      setStatus("copy failed");
+      terminal.writeln(`\r\n[wrapx] copy failed: ${String(error)}`);
+    }
+  }
+
+  async function pasteClipboard() {
+    const terminal = terminalRef.current;
+    if (!terminal) {
+      return;
+    }
+
+    await pasteClipboardText(terminal);
+    terminal.focus();
+  }
+
+  async function pasteClipboardText(terminal: Terminal) {
+    if (!navigator.clipboard?.readText) {
+      setStatus("clipboard unavailable");
+      terminal.writeln("\r\n[wrapx] clipboard paste is unavailable in this WebView.");
+      return;
+    }
+
+    try {
+      const text = await navigator.clipboard.readText();
+      if (!text) {
+        setStatus("clipboard empty");
+        return;
+      }
+
+      terminal.paste(text);
+      setStatus("pasted clipboard");
+    } catch (error) {
+      setStatus("paste failed");
+      terminal.writeln(`\r\n[wrapx] paste failed: ${String(error)}`);
     }
   }
 
@@ -148,6 +270,17 @@ export function TerminalView() {
             Close
           </button>
         </form>
+        <div className="terminal-actions">
+          <button type="button" onClick={clearTerminal}>
+            Clear
+          </button>
+          <button type="button" onClick={copySelection}>
+            Copy
+          </button>
+          <button type="button" onClick={pasteClipboard}>
+            Paste
+          </button>
+        </div>
         <span className="terminal-status">{status}</span>
       </div>
       <div ref={hostRef} className="terminal-host" />
