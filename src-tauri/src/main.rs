@@ -9,6 +9,7 @@ fn main() {
             commands::pty_write,
             commands::pty_resize,
             commands::pty_close,
+            commands::pty_close_all,
         ])
         .run(tauri::generate_context!())
         .expect("failed to run WrapX");

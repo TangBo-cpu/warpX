@@ -3,6 +3,7 @@
 状态：APPROVED  
 日期：2026-06-07  
 产品方向：Windows-first 多 PowerShell / 多 CLI Agent GUI 控制台
+当前实现进度：M0/M1/M2 pre-alpha 已完成；下一阶段是 M3 Claude Code / Codex process detection。
 
 ## 1. 一句话定位
 
