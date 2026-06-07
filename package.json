@@ -7,8 +7,8 @@
     "dev": "vite --host 127.0.0.1 --port 1420",
     "build": "tsc && vite build",
     "tauri": "tauri",
-    "tauri:dev": "tauri dev",
-    "tauri:build": "tauri build"
+    "tauri:dev": "scripts\\tauri-env.cmd dev",
+    "tauri:build": "scripts\\tauri-env.cmd build"
   },
   "dependencies": {
     "@tauri-apps/api": "latest",

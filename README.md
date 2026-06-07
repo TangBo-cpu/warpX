@@ -219,20 +219,24 @@ npm install
 npm run tauri:dev
 ```
 
+`npm run tauri:dev` 会通过 `scripts/tauri-env.cmd` 自动把 `%USERPROFILE%\.cargo\bin` 加入本次进程 PATH，并尝试加载 Visual Studio 2022 的 `vcvars64.bat`，不需要每次手动配置 Cargo/MSVC 环境。
+
 常用校验：
 
 ```powershell
 npm run build
 ```
 
-Rust/Tauri 校验需要 MSVC 环境。如果普通终端里 `cargo check` 找不到 MSVC linker，先打开 **x64 Native Tools Command Prompt for VS 2022**，或通过 `vcvars64.bat` 启动后再运行：
+Rust/Tauri 校验：
 
 ```powershell
 cargo check --manifest-path src-tauri/Cargo.toml
 cargo test --manifest-path src-tauri/Cargo.toml --test pty_smoke -- --nocapture
 ```
 
-本机已知问题：`tauri info` 可能无法通过 `vswhere` 检测到 MSVC，但在 MSVC 环境初始化后 `cargo check` / `cargo test` 可以正常作为校验入口。
+如果 `npm run tauri:dev` 仍提示找不到 `cargo.exe`，先确认 Rust 已安装在默认位置：`%USERPROFILE%\.cargo\bin\cargo.exe`。如果提示找不到 MSVC linker，确认已安装 Visual Studio 2022 Build Tools，并包含 C++ build tools。
+
+本机已知问题：`tauri info` 可能无法通过 `vswhere` 检测到 MSVC，但 `scripts/tauri-env.cmd` 会直接尝试加载常见 Visual Studio 2022 安装路径下的 `vcvars64.bat`。
 
 ## 当前开发交接
 
