@@ -8,7 +8,7 @@ WrapX 是一个 Windows-first 的多 PowerShell / 多 CLI Agent GUI 控制台。
 WrapX = embedded PowerShell + multi-session sidebar + conservative agent status
 ```
 
-当前状态：planning / pre-alpha。
+当前状态：pre-alpha；M0/M1/M2 已在 `feature-m2-multi-session-sidebar` worktree 中实现并通过运行时验证，下一阶段是 M3 Claude Code / Codex process detection。
 
 ## 为什么做
 
@@ -81,21 +81,22 @@ v1 的卡片叫 **Session Card**：
 
 ## 技术栈
 
-计划默认：
+当前实现：
 
 ```text
 Desktop: Tauri 2
 Backend: Rust
 Frontend: React
 Terminal renderer: xterm.js
+PTY backend: portable-pty / Windows ConPTY
 Shell: pwsh.exe
-Storage: local JSON
+Storage: local JSON（计划中，M2 尚未持久化 session metadata）
 Platform: Windows first
 ```
 
-PTY backend 暂未最终确定。必须先完成 M0 spike。
+M0 已选择 `portable-pty`，并将单 PTY spike 迁移为当前 `pty_manager.rs` / `commands.rs` 后端结构。
 
-## 最高优先级：M0 PTY Spike
+## M0 PTY Spike 结果
 
 WrapX 的地基不是 sidebar，而是能不能稳定嵌入真实 PowerShell。
 
@@ -107,14 +108,14 @@ M0 目标：
 
 M0 hard blockers：
 
-- [ ] starts `pwsh.exe` in selected cwd
-- [ ] bidirectional IO works without blocking Tauri IPC
-- [ ] resize works while output is streaming
-- [ ] Ctrl+C interrupts a long-running command
-- [ ] multiline paste works
-- [ ] Unicode / Chinese input works
-- [ ] inactive session output can buffer
-- [ ] process kill cleans up child processes
+- [x] starts `pwsh.exe` in selected cwd
+- [x] bidirectional IO works without blocking Tauri IPC
+- [x] resize works while output is streaming
+- [x] Ctrl+C interrupts a long-running command
+- [x] multiline paste works
+- [x] Unicode / Chinese input works
+- [x] inactive session output can buffer
+- [x] process kill cleans up child processes
 
 如果任一 hard blocker 不通过，不进入 M1/M2。
 
@@ -144,6 +145,7 @@ M5: Windows alpha release
 | [`IMPLEMENTATION_CHECKLIST.md`](./IMPLEMENTATION_CHECKLIST.md) | M0-M5 实现清单、模块、测试、验收标准 |
 | [`PROJECT_READINESS.md`](./PROJECT_READINESS.md) | 工程准备、风险、缺口、下一步建议 |
 | [`M0_PTY_SPIKE.md`](./M0_PTY_SPIKE.md) | M0 PTY 技术地基验证计划 |
+| [`UI_DESIGN.md`](./UI_DESIGN.md) | 参考 UI 的整体布局方向 |
 
 后续建议补充：
 
@@ -204,19 +206,27 @@ v1 默认限制：
 
 ## 当前下一步
 
-不要先搭完整 app。
-
-先做：
+M0/M1/M2 当前已完成到可运行 pre-alpha：
 
 ```text
-M0: PTY backend selection and single-terminal spike
+M0: PTY backend selection and single-terminal spike — PASS
+M1: embedded pwsh.exe terminal — implemented
+M2: multi-session sidebar — implemented and runtime-verified
 ```
 
-M0 通过后再进入：
+下一步进入：
 
 ```text
-M1: embedded pwsh.exe terminal
+M3: Claude Code / Codex process detection
 ```
+
+M2 已验证的关键行为：
+
+- `New Session` 按钮可见并能创建真实 `pwsh.exe` session。
+- 多 session 使用独立 PTY 和独立 xterm.js instance。
+- session card 可切换 active terminal，输出按 session 归属写入。
+- `exit` 后 UI 更新为 `exited / shell exited`。
+- exited session 再输入时只显示一次友好提示，不再重复触发 backend `write failed`。
 
 ## License
 

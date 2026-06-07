@@ -3,6 +3,7 @@
 状态：APPROVED  
 日期：2026-06-07  
 用途：后续写代码时的工程执行参考
+当前实现状态：M0/M1/M2 已实现到 pre-alpha；M2 已完成运行时验证；下一阶段是 M3。
 
 ## 0. 总体开发顺序
 
@@ -28,26 +29,26 @@ M5: Windows alpha release
 
 ### 1.1 要做
 
-- [ ] 调研 Windows + Tauri + Rust 可用 PTY 方案。
-- [ ] 选择候选 PTY backend。
-- [ ] 创建最小 Tauri + React + xterm.js 原型。
-- [ ] Rust 启动一个 `pwsh.exe`。
-- [ ] 前端 xterm.js 显示真实 PowerShell。
-- [ ] 前端输入能写入 PTY。
-- [ ] PTY 输出能实时显示到 xterm.js。
+- [x] 调研 Windows + Tauri + Rust 可用 PTY 方案。
+- [x] 选择候选 PTY backend：`portable-pty`。
+- [x] 创建最小 Tauri + React + xterm.js 原型。
+- [x] Rust 启动一个 `pwsh.exe`。
+- [x] 前端 xterm.js 显示真实 PowerShell。
+- [x] 前端输入能写入 PTY。
+- [x] PTY 输出能实时显示到 xterm.js。
 
 ### 1.2 硬性验收
 
 全部必须通过：
 
-- [ ] starts `pwsh.exe` in selected cwd
-- [ ] bidirectional IO works without blocking Tauri IPC
-- [ ] resize works while output is streaming
-- [ ] Ctrl+C interrupts a long-running command
-- [ ] multiline paste works
-- [ ] Unicode / Chinese input works
-- [ ] inactive session output can buffer
-- [ ] process kill cleans up child processes
+- [x] starts `pwsh.exe` in selected cwd
+- [x] bidirectional IO works without blocking Tauri IPC
+- [x] resize works while output is streaming
+- [x] Ctrl+C interrupts a long-running command
+- [x] multiline paste works
+- [x] Unicode / Chinese input works
+- [x] inactive session output can buffer
+- [x] process kill cleans up child processes
 
 ### 1.3 可接受 alpha 问题
 
@@ -74,19 +75,19 @@ M5: Windows alpha release
 
 ### 2.1 要做
 
-- [ ] Tauri app 能启动。
-- [ ] React 主界面能显示 xterm.js。
-- [ ] Rust 后端能启动 `pwsh.exe`。
-- [ ] 支持 cwd。
-- [ ] 支持输入输出。
-- [ ] 支持 resize。
-- [ ] 支持 Ctrl+C。
-- [ ] 支持 Ctrl+L。
-- [ ] 支持复制粘贴。
-- [ ] 支持 multiline paste。
-- [ ] 支持中文/Unicode 输入。
-- [ ] 支持 ANSI 输出。
-- [ ] 关闭 session 能终止 shell。
+- [x] Tauri app 能启动。
+- [x] React 主界面能显示 xterm.js。
+- [x] Rust 后端能启动 `pwsh.exe`。
+- [x] 支持 cwd。
+- [x] 支持输入输出。
+- [x] 支持 resize。
+- [x] 支持 Ctrl+C。
+- [x] 支持 Ctrl+L。
+- [x] 支持复制粘贴。
+- [x] 支持 multiline paste。
+- [x] 支持中文/Unicode 输入。
+- [x] 支持 ANSI 输出。
+- [x] 关闭 session 能终止 shell/process tree。
 
 ### 2.2 验收命令/操作
 
@@ -112,33 +113,33 @@ M5: Windows alpha release
 
 ### 3.1 要做
 
-- [ ] New Session dialog。
-- [ ] 用户填写 session name。
-- [ ] 用户选择 cwd。
-- [ ] 左侧 session list/sidebar。
-- [ ] 单主终端区域。
-- [ ] 点击 session card 切换 active terminal。
-- [ ] 每个 session 有独立 PTY。
-- [ ] 每个 session 有独立 xterm.js instance。
-- [ ] inactive session 继续接收输出。
-- [ ] active session 切换时不串输出。
-- [ ] close session 只关闭对应 session。
-- [ ] app close 时提示终止 active sessions。
+- [x] New Session form（当前是 toolbar form，不是 modal dialog）。
+- [x] 用户填写 session name。
+- [x] 用户填写 cwd。
+- [x] 左侧 session list/sidebar。
+- [x] 单主终端区域。
+- [x] 点击 session card 切换 active terminal。
+- [x] 每个 session 有独立 PTY。
+- [x] 每个 session 有独立 xterm.js instance。
+- [x] inactive session 继续接收输出到对应 xterm.js instance。
+- [x] active session 切换时不串输出。
+- [x] close session 只关闭对应 session。
+- [x] app close 时提示终止 active sessions。
 
 ### 3.2 xterm.js 生命周期
 
-- [ ] create session → create PTY
-- [ ] create xterm.js instance
-- [ ] active terminal attach 到 DOM
-- [ ] inactive terminal 保持实例但隐藏/脱离显示
-- [ ] activation 时 attach + fit/resize
-- [ ] layout resize 时 active terminal 立即 resize
+- [x] create session → create PTY
+- [x] create xterm.js instance
+- [x] active terminal attach 到 DOM
+- [x] inactive terminal 保持实例但隐藏显示
+- [x] activation 时 fit/resize
+- [x] layout resize 时 active terminal 立即 resize
 - [ ] inactive terminal 记录 pending cols/rows，激活时应用
-- [ ] close session 时 dispose xterm.js、移除 listeners、kill PTY
+- [x] close session 时 dispose xterm.js、移除 runtime、kill PTY
 
 ### 3.3 存储
 
-v1 使用本地 JSON。
+v1 使用本地 JSON。当前 M2 slice 尚未实现持久化，仍属于后续工作。
 
 - [ ] root 有 `schemaVersion`。
 - [ ] atomic write：写 temp、flush、rename。
@@ -425,16 +426,26 @@ type Session = {
 
 ## 11. 当前最高优先级任务
 
-现在不要先搭完整项目架构。
+M0/M1/M2 当前已完成到 pre-alpha slice。
 
-先做：
+已验证的 M2 runtime 行为：
+
+- `New Session` 按钮布局可见，能创建真实 `pwsh.exe` session。
+- 多 session 由 backend `HashMap<session_id, PtySession>` 管理。
+- `pty-output` / `pty-exit` / `pty-closed` 事件都携带 `sessionId`，前端按 session 写入对应 xterm.js instance。
+- 点击 session card 可切换 active terminal。
+- close session 只关闭对应 PTY/session runtime。
+- 自然输入 `exit` 后 UI 更新为 `exited / shell exited`。
+- exited session 再输入时，前端只显示一次友好提示，不再重复向 backend 写入并产生 `write failed`。
+
+下一步：
 
 ```text
-T1: M0 PTY backend spike
+T3: M3 Claude Code / Codex process detection
 ```
 
-完成 T1 后再决定：
+M3 前建议先补：
 
-```text
-是否进入 M1 正式单终端实现。
-```
+- app close 时 active sessions 统一确认/清理。
+- M2 最终 git 状态清理和提交。
+- 明确 process detection 与 session card 状态字段的最小数据模型。

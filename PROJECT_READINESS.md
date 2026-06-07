@@ -55,7 +55,7 @@ README 是项目入口。即使代码还没写，也应该有一个简版。
 
 ```text
 - WrapX 是什么
-- 当前状态：pre-alpha / planning
+- 当前状态：pre-alpha；M0/M1/M2 已完成，M3 是下一阶段
 - v1 目标
 - 非目标
 - 技术栈
@@ -339,17 +339,24 @@ wrapx/
 
 ## 7. 当前建议的下一步
 
-不要马上写完整 app。
+当前项目已经完成 M0/M1/M2 pre-alpha slice：
+
+```text
+1. README.md 和 M0_PTY_SPIKE.md 已建立。
+2. Git 仓库已初始化，并在 M2 worktree 中开发。
+3. Tauri + React 项目已 scaffold。
+4. M0 single-terminal spike 已 PASS。
+5. M1 embedded pwsh.exe terminal 已实现。
+6. M2 multi-session sidebar 已实现并做过运行时验证。
+```
 
 正确下一步：
 
 ```text
-1. 写 README.md 和 M0_PTY_SPIKE.md。
-2. 初始化 Git。
-3. scaffold Tauri + React 项目。
-4. 做 M0 single-terminal spike。
-5. 写 spike 结果。
-6. 只有 M0 hard blockers 全过，才进入 M1。
+1. 清理 M2 worktree 的最终 git 状态。
+2. 补齐 app close 时 active sessions 统一确认/清理。
+3. 提交 M2 slice。
+4. 进入 M3 Claude Code / Codex process detection。
 ```
 
 ## 8. 最小下一批文档建议

@@ -1,4 +1,5 @@
 use portable_pty::{native_pty_system, Child, CommandBuilder, MasterPty, PtySize};
+use std::collections::HashMap;
 use std::io::{Read, Write};
 use std::path::PathBuf;
 use std::sync::Mutex;
@@ -9,15 +10,14 @@ use std::mem;
 use windows_sys::Win32::Foundation::{CloseHandle, INVALID_HANDLE_VALUE};
 #[cfg(windows)]
 use windows_sys::Win32::System::Diagnostics::ToolHelp::{
-    CreateToolhelp32Snapshot, Process32FirstW, Process32NextW, PROCESSENTRY32W,
-    TH32CS_SNAPPROCESS,
+    CreateToolhelp32Snapshot, Process32FirstW, Process32NextW, PROCESSENTRY32W, TH32CS_SNAPPROCESS,
 };
 #[cfg(windows)]
 use windows_sys::Win32::System::Threading::{OpenProcess, TerminateProcess, PROCESS_TERMINATE};
 
 #[derive(Default)]
 pub struct PtyState {
-    session: Mutex<Option<PtySession>>,
+    sessions: Mutex<HashMap<String, PtySession>>,
 }
 
 pub struct StartedPty {
@@ -41,9 +41,26 @@ impl PtySession {
 }
 
 impl PtyState {
-    pub fn start(&self, cwd: PathBuf, cols: u16, rows: u16) -> Result<StartedPty, String> {
+    pub fn start(
+        &self,
+        session_id: String,
+        cwd: PathBuf,
+        cols: u16,
+        rows: u16,
+    ) -> Result<StartedPty, String> {
+        if session_id.trim().is_empty() {
+            return Err("session id is required".to_string());
+        }
         if !cwd.is_dir() {
             return Err(format!("cwd does not exist: {}", cwd.display()));
+        }
+
+        let mut guard = self
+            .sessions
+            .lock()
+            .map_err(|_| "PTY state lock poisoned".to_string())?;
+        if guard.contains_key(&session_id) {
+            return Err(format!("PTY session already exists: {session_id}"));
         }
 
         let pty_system = native_pty_system();
@@ -64,32 +81,26 @@ impl PtyState {
         let reader = pair.master.try_clone_reader().map_err(to_error_string)?;
         let writer = pair.master.take_writer().map_err(to_error_string)?;
 
-        let session = PtySession {
-            master: pair.master,
-            writer,
-            child,
-        };
-
-        let mut guard = self
-            .session
-            .lock()
-            .map_err(|_| "PTY state lock poisoned".to_string())?;
-        if let Some(mut existing) = guard.take() {
-            existing.kill();
-        }
-        *guard = Some(session);
+        guard.insert(
+            session_id,
+            PtySession {
+                master: pair.master,
+                writer,
+                child,
+            },
+        );
 
         Ok(StartedPty { pid, reader })
     }
 
-    pub fn write(&self, data: &str) -> Result<(), String> {
+    pub fn write(&self, session_id: &str, data: &str) -> Result<(), String> {
         let mut guard = self
-            .session
+            .sessions
             .lock()
             .map_err(|_| "PTY state lock poisoned".to_string())?;
         let session = guard
-            .as_mut()
-            .ok_or_else(|| "PTY session is not running".to_string())?;
+            .get_mut(session_id)
+            .ok_or_else(|| format!("PTY session is not running: {session_id}"))?;
 
         session
             .writer
@@ -98,14 +109,14 @@ impl PtyState {
             .map_err(to_error_string)
     }
 
-    pub fn resize(&self, cols: u16, rows: u16) -> Result<(), String> {
+    pub fn resize(&self, session_id: &str, cols: u16, rows: u16) -> Result<(), String> {
         let guard = self
-            .session
+            .sessions
             .lock()
             .map_err(|_| "PTY state lock poisoned".to_string())?;
         let session = guard
-            .as_ref()
-            .ok_or_else(|| "PTY session is not running".to_string())?;
+            .get(session_id)
+            .ok_or_else(|| format!("PTY session is not running: {session_id}"))?;
 
         session
             .master
@@ -118,16 +129,59 @@ impl PtyState {
             .map_err(to_error_string)
     }
 
-    pub fn close(&self) -> Result<(), String> {
+    pub fn close(&self, session_id: &str) -> Result<(), String> {
         let mut guard = self
-            .session
+            .sessions
             .lock()
             .map_err(|_| "PTY state lock poisoned".to_string())?;
-        if let Some(mut session) = guard.take() {
+        if let Some(mut session) = guard.remove(session_id) {
             session.kill();
         }
 
         Ok(())
+    }
+
+    pub fn close_all(&self) -> Result<Vec<String>, String> {
+        let mut guard = self
+            .sessions
+            .lock()
+            .map_err(|_| "PTY state lock poisoned".to_string())?;
+        let mut sessions = guard.drain().collect::<Vec<_>>();
+        drop(guard);
+
+        let session_ids = sessions
+            .iter()
+            .map(|(session_id, _)| session_id.clone())
+            .collect();
+        for (_, session) in sessions.iter_mut() {
+            session.kill();
+        }
+
+        Ok(session_ids)
+    }
+
+    pub fn forget(&self, session_id: &str) -> Result<bool, String> {
+        let mut guard = self
+            .sessions
+            .lock()
+            .map_err(|_| "PTY state lock poisoned".to_string())?;
+        Ok(guard.remove(session_id).is_some())
+    }
+
+    pub fn is_exited(&self, session_id: &str) -> Result<Option<bool>, String> {
+        let mut guard = self
+            .sessions
+            .lock()
+            .map_err(|_| "PTY state lock poisoned".to_string())?;
+        let Some(session) = guard.get_mut(session_id) else {
+            return Ok(None);
+        };
+
+        session
+            .child
+            .try_wait()
+            .map(|status| Some(status.is_some()))
+            .map_err(to_error_string)
     }
 }
 
