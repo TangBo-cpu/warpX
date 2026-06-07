@@ -1,0 +1,135 @@
+:root {
+  color: #f6f7fb;
+  background: #111318;
+  font-family:
+    Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI",
+    sans-serif;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body,
+#root {
+  width: 100%;
+  height: 100%;
+  margin: 0;
+}
+
+button,
+input {
+  font: inherit;
+}
+
+.app-shell {
+  display: flex;
+  flex-direction: column;
+  height: 100vh;
+  padding: 20px;
+  gap: 16px;
+}
+
+.app-header {
+  display: flex;
+  align-items: end;
+  justify-content: space-between;
+  gap: 24px;
+}
+
+.app-header h1 {
+  margin: 0;
+  font-size: 28px;
+  line-height: 1.1;
+}
+
+.eyebrow {
+  margin: 0 0 4px;
+  color: #96a0b8;
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+
+.status-note {
+  max-width: 560px;
+  margin: 0;
+  color: #aeb7cc;
+  font-size: 14px;
+  text-align: right;
+}
+
+.terminal-card {
+  display: flex;
+  flex: 1;
+  min-height: 0;
+  flex-direction: column;
+  overflow: hidden;
+  border: 1px solid #2a3040;
+  border-radius: 14px;
+  background: #05070a;
+  box-shadow: 0 22px 70px rgba(0, 0, 0, 0.35);
+}
+
+.terminal-toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 12px;
+  border-bottom: 1px solid #252b38;
+  background: #151923;
+}
+
+.cwd-form {
+  display: flex;
+  min-width: 0;
+  flex: 1;
+  gap: 8px;
+}
+
+.cwd-form input {
+  min-width: 0;
+  flex: 1;
+  border: 1px solid #343b4e;
+  border-radius: 8px;
+  padding: 8px 10px;
+  color: #f6f7fb;
+  background: #0d1119;
+}
+
+button {
+  border: 1px solid #3d465c;
+  border-radius: 8px;
+  padding: 8px 12px;
+  color: #f6f7fb;
+  background: #232a39;
+  cursor: pointer;
+}
+
+button:hover:not(:disabled) {
+  background: #2e374a;
+}
+
+button:disabled {
+  cursor: not-allowed;
+  opacity: 0.55;
+}
+
+.terminal-status {
+  white-space: nowrap;
+  color: #aeb7cc;
+  font-size: 13px;
+}
+
+.terminal-host {
+  flex: 1;
+  min-height: 0;
+  padding: 10px;
+}
+
+.terminal-host .xterm {
+  height: 100%;
+}
