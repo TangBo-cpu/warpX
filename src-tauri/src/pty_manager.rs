@@ -26,6 +26,12 @@ pub struct StartedPty {
     pub reader: Box<dyn Read + Send>,
 }
 
+#[derive(Debug, Clone)]
+pub struct SessionRoot {
+    pub session_id: String,
+    pub shell_pid: u32,
+}
+
 struct PtySession {
     master: Box<dyn MasterPty + Send>,
     writer: Box<dyn Write + Send>,
@@ -190,6 +196,23 @@ impl PtyState {
             .try_wait()
             .map(|status| Some(status.is_some()))
             .map_err(to_error_string)
+    }
+
+    pub fn session_roots(&self) -> Result<Vec<SessionRoot>, String> {
+        let guard = self
+            .sessions
+            .lock()
+            .map_err(|_| "PTY state lock poisoned".to_string())?;
+
+        Ok(guard
+            .iter()
+            .filter_map(|(session_id, session)| {
+                session.child.process_id().map(|shell_pid| SessionRoot {
+                    session_id: session_id.clone(),
+                    shell_pid,
+                })
+            })
+            .collect())
     }
 }
 

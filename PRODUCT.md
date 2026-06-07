@@ -3,7 +3,7 @@
 状态：APPROVED  
 日期：2026-06-07  
 产品方向：Windows-first 多 PowerShell / 多 CLI Agent GUI 控制台
-当前实现进度：M0/M1/M2 pre-alpha 已完成；下一阶段是 M3 Claude Code / Codex process detection。
+当前实现进度：M0/M1/M2/M3-A pre-alpha 已完成；下一阶段是 M4 basic status detection。
 
 ## 1. 一句话定位
 
@@ -230,6 +230,8 @@ type SessionStatus =
   | "exited"
   | "unknown";
 ```
+
+当前 M3-A 已实现 agent kind 检测：backend 基于每个 live `pwsh.exe` 的 process tree 自动识别 `claude-code` / `codex` / `unknown` / `none`，Session Card 显示 agent badge，并支持 manual override。下面的 `waiting-input`、`approval-needed`、`error` 等输出状态仍属于 M4。
 
 状态优先级：
 

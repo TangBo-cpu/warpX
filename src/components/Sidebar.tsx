@@ -1,5 +1,5 @@
 import { useState } from "react";
-import type { Session } from "../types/session";
+import type { AgentKind, Session } from "../types/session";
 import { NewSessionDialog } from "./NewSessionDialog";
 import { SessionCard } from "./SessionCard";
 
@@ -12,6 +12,7 @@ type SidebarProps = {
   onCreateSession: (name: string, cwd: string) => void;
   onSelectSession: (sessionId: string) => void;
   onCloseSession: (sessionId: string) => void;
+  onAgentOverride: (sessionId: string, override?: AgentKind) => void;
 };
 
 export function Sidebar({
@@ -23,6 +24,7 @@ export function Sidebar({
   onCreateSession,
   onSelectSession,
   onCloseSession,
+  onAgentOverride,
 }: SidebarProps) {
   const [showNewSessionForm, setShowNewSessionForm] = useState(false);
   const shouldShowForm = sessions.length === 0 || showNewSessionForm;
@@ -71,6 +73,7 @@ export function Sidebar({
               key={session.id}
               active={session.id === activeSessionId}
               session={session}
+              onAgentOverride={(override) => onAgentOverride(session.id, override)}
               onSelect={() => onSelectSession(session.id)}
               onClose={() => onCloseSession(session.id)}
             />

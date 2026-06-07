@@ -22,7 +22,8 @@ body,
 }
 
 button,
-input {
+input,
+select {
   font: inherit;
 }
 
@@ -137,6 +138,16 @@ body {
 .terminal-pill.is-running {
   color: #62e6ad;
   background: rgba(38, 118, 79, 0.26);
+}
+
+.terminal-pill.is-shell {
+  color: #82c7ff;
+  background: rgba(38, 79, 118, 0.24);
+}
+
+.terminal-pill.is-unknown {
+  color: #d7c8b7;
+  background: rgba(255, 255, 255, 0.08);
 }
 
 .terminal-pill.is-starting {
@@ -396,6 +407,14 @@ button:disabled {
   gap: 4px;
 }
 
+.session-card-header,
+.session-card-status-row {
+  display: flex;
+  min-width: 0;
+  align-items: center;
+  gap: 7px;
+}
+
 .session-name {
   overflow: hidden;
   color: #f3dfc2;
@@ -404,7 +423,9 @@ button:disabled {
   white-space: nowrap;
 }
 
-.session-status {
+.session-status,
+.agent-badge,
+.override-badge {
   width: fit-content;
   border-radius: 999px;
   padding: 2px 8px;
@@ -414,9 +435,45 @@ button:disabled {
   font-weight: 800;
 }
 
+.agent-badge {
+  flex: 0 0 auto;
+  color: #82c7ff;
+  background: rgba(38, 79, 118, 0.24);
+}
+
+.agent-badge.is-claude-code {
+  color: #c7a7ff;
+  background: rgba(92, 59, 149, 0.32);
+}
+
+.agent-badge.is-codex {
+  color: #5ee39f;
+  background: rgba(31, 99, 65, 0.28);
+}
+
+.agent-badge.is-unknown {
+  color: #ffd37a;
+  background: rgba(126, 86, 24, 0.3);
+}
+
+.override-badge {
+  color: #f5b37d;
+  background: rgba(126, 74, 24, 0.32);
+}
+
 .session-status.is-running {
   color: #5ee39f;
   background: rgba(31, 99, 65, 0.28);
+}
+
+.session-status.is-shell {
+  color: #82c7ff;
+  background: rgba(38, 79, 118, 0.24);
+}
+
+.session-status.is-unknown {
+  color: #ffd37a;
+  background: rgba(126, 86, 24, 0.3);
 }
 
 .session-status.is-starting {
@@ -433,6 +490,32 @@ button:disabled {
 .session-status.is-error {
   color: #ff9d93;
   background: rgba(122, 35, 35, 0.28);
+}
+
+.agent-override {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  align-items: center;
+  gap: 6px;
+  margin-top: 2px;
+  color: #8f8478;
+  font-size: 11px;
+  font-weight: 800;
+}
+
+.agent-override select {
+  min-width: 0;
+  border: 1px solid rgba(117, 83, 52, 0.55);
+  border-radius: 8px;
+  padding: 4px 7px;
+  color: #f4efe6;
+  background: rgba(11, 10, 9, 0.86);
+  outline: none;
+}
+
+.agent-override select:focus {
+  border-color: rgba(198, 126, 53, 0.85);
+  box-shadow: 0 0 0 2px rgba(198, 126, 53, 0.15);
 }
 
 .session-cwd,

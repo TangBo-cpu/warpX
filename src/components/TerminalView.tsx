@@ -5,7 +5,7 @@ import { FitAddon } from "@xterm/addon-fit";
 import { Terminal } from "@xterm/xterm";
 import { useEffect, useRef, useState } from "react";
 import { Sidebar } from "./Sidebar";
-import type { Session } from "../types/session";
+import type { AgentKind, Session, SessionStatus } from "../types/session";
 
 type PtyOutput = {
   sessionId: string;
@@ -19,6 +19,13 @@ type PtyStarted = {
 
 type PtyLifecycleEvent = {
   sessionId: string;
+};
+
+type AgentDetected = {
+  sessionId: string;
+  autoAgentKind: AgentKind;
+  activeAgentPid?: number;
+  reason: string;
 };
 
 type TerminalRuntime = {
@@ -74,9 +81,7 @@ export function TerminalView() {
         return;
       }
 
-      const activeSessions = sessionsRef.current.filter(
-        (session) => session.status === "starting" || session.status === "running",
-      );
+      const activeSessions = sessionsRef.current.filter((session) => isLiveSessionStatus(session.status));
       if (activeSessions.length === 0) {
         return;
       }
@@ -131,10 +136,39 @@ export function TerminalView() {
       }
 
       runtime.terminal.write(Uint8Array.from(data));
-      updateSession(sessionId, {
-        status: "running",
+      updateSessionWith(sessionId, (session) => ({
+        ...session,
+        status: session.status === "starting" ? statusFromAgentKind(session.agentKind) : session.status,
         statusMessage: "output received",
         lastActivityAt: new Date().toISOString(),
+      }));
+    }).then((unlisten) => {
+      if (cancelled) {
+        unlisten();
+      } else {
+        unlisteners.push(unlisten);
+      }
+    });
+
+    void listen<AgentDetected>("agent-detected", (event) => {
+      const { sessionId, autoAgentKind, activeAgentPid, reason } = event.payload;
+      updateSessionWith(sessionId, (session) => {
+        if (!isLiveSessionStatus(session.status)) {
+          return session;
+        }
+
+        const agentKind = session.agentKindOverride ?? autoAgentKind;
+        return {
+          ...session,
+          autoAgentKind,
+          agentKind,
+          activeAgentPid,
+          agentReason: reason,
+          agentDetectedAt: new Date().toISOString(),
+          status: statusFromAgentKind(agentKind),
+          statusMessage: reason,
+          lastActivityAt: new Date().toISOString(),
+        };
       });
     }).then((unlisten) => {
       if (cancelled) {
@@ -196,6 +230,8 @@ export function TerminalView() {
       id: sessionId,
       name,
       cwd,
+      autoAgentKind: "none",
+      agentKind: "none",
       status: "starting",
       statusMessage: "starting pwsh.exe...",
       createdAt: now,
@@ -264,7 +300,7 @@ export function TerminalView() {
 
         updateSession(sessionId, {
           shellPid: result.pid,
-          status: "running",
+          status: "shell",
           statusMessage: result.pid ? `pwsh.exe pid ${result.pid}` : "pwsh.exe running",
           lastActivityAt: new Date().toISOString(),
         });
@@ -353,11 +389,15 @@ export function TerminalView() {
 
   function canWriteToSession(sessionId: string) {
     return sessionsRef.current.some(
-      (session) => session.id === sessionId && session.status === "running",
+      (session) => session.id === sessionId && isLiveSessionStatus(session.status),
     );
   }
 
   function updateSession(sessionId: string, patch: Partial<Session>) {
+    updateSessionWith(sessionId, (session) => ({ ...session, ...patch }));
+  }
+
+  function updateSessionWith(sessionId: string, update: (session: Session) => Session) {
     let changed = false;
     const nextSessions = sessionsRef.current.map((session) => {
       if (session.id !== sessionId) {
@@ -365,12 +405,30 @@ export function TerminalView() {
       }
 
       changed = true;
-      return { ...session, ...patch };
+      return update(session);
     });
 
     if (changed) {
       replaceSessions(nextSessions);
     }
+  }
+
+  function setAgentOverride(sessionId: string, override?: AgentKind) {
+    updateSessionWith(sessionId, (session) => {
+      if (!isLiveSessionStatus(session.status)) {
+        return session;
+      }
+
+      const agentKind = override ?? session.autoAgentKind;
+      return {
+        ...session,
+        agentKindOverride: override,
+        agentKind,
+        status: statusFromAgentKind(agentKind),
+        statusMessage: override ? `manual override: ${agentKind}` : session.agentReason,
+      };
+    });
+    focusActiveTerminal();
   }
 
   function fitAndResize(sessionId: string) {
@@ -559,6 +617,7 @@ export function TerminalView() {
         disabled={sessions.length >= MAX_LIVE_SESSIONS}
         nextSessionNumber={sessionCounterRef.current}
         sessions={sessions}
+        onAgentOverride={setAgentOverride}
         onCloseSession={closeSession}
         onCreateSession={createSession}
         onSelectSession={selectSession}
@@ -599,4 +658,20 @@ function createTerminal(sessionId: string, name: string, canWrite: () => boolean
   });
 
   return terminal;
+}
+
+function statusFromAgentKind(agentKind: AgentKind): SessionStatus {
+  if (agentKind === "none") {
+    return "shell";
+  }
+
+  if (agentKind === "unknown") {
+    return "unknown";
+  }
+
+  return "running";
+}
+
+function isLiveSessionStatus(status: SessionStatus) {
+  return status === "starting" || status === "shell" || status === "running" || status === "unknown";
 }

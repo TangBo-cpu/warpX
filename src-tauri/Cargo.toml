@@ -12,6 +12,7 @@ tauri-build = { version = "2", features = [] }
 portable-pty = "0.8"
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
+sysinfo = "0.30"
 tauri = { version = "2", features = [] }
 windows-sys = { version = "0.61", features = [
   "Win32_Foundation",
