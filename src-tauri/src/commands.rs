@@ -102,6 +102,13 @@ pub fn pty_close_all(
     Ok(session_ids)
 }
 
+#[tauri::command]
+pub fn app_exit(app: AppHandle, state: State<'_, PtyState>) -> Result<(), String> {
+    state.close_all()?;
+    app.exit(0);
+    Ok(())
+}
+
 fn spawn_output_reader(app: AppHandle, session_id: String, mut reader: Box<dyn Read + Send>) {
     thread::spawn(move || {
         let mut buffer = [0_u8; 8192];

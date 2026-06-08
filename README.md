@@ -8,7 +8,7 @@ WrapX 是一个 Windows-first 的多 PowerShell / 多 CLI Agent GUI 控制台。
 WrapX = embedded PowerShell + multi-session sidebar + conservative agent status
 ```
 
-当前状态：pre-alpha；M0/M1/M2 已实现并通过运行时验证，下一阶段是 M3 Claude Code / Codex process detection。
+当前状态：pre-alpha；M0/M1/M2/M3-A 已实现并通过验证，下一阶段是 M4 basic status detection。
 
 已完成：
 
@@ -18,6 +18,7 @@ WrapX = embedded PowerShell + multi-session sidebar + conservative agent status
 - M0 H1-H8 自动 smoke 测试通过。
 - M1 终端日常可用性补强：Ctrl+L、Copy/Paste 按钮、Ctrl+Shift+C、Ctrl+Shift+V、关闭确认、`pwsh.exe`/cwd 启动诊断。
 - M2 多 session sidebar：独立 PTY、独立 xterm.js instance、session card 切换、`pty-exit` / `pty-closed` lifecycle、app close active sessions confirm/cleanup。
+- M3-A agent kind detection：基于 `pwsh.exe` process tree 检测 Claude Code / Codex，Session Card 显示 agent badge，并支持 manual override。
 
 ## 为什么做
 
@@ -234,6 +235,7 @@ Rust/Tauri 校验：
 
 ```powershell
 cargo check --manifest-path src-tauri/Cargo.toml
+cargo test --manifest-path src-tauri/Cargo.toml
 cargo test --manifest-path src-tauri/Cargo.toml --test pty_smoke -- --nocapture
 ```
 
@@ -243,28 +245,30 @@ cargo test --manifest-path src-tauri/Cargo.toml --test pty_smoke -- --nocapture
 
 ## 当前下一步
 
-M0/M1/M2 当前已完成到可运行 pre-alpha：
+M0/M1/M2/M3-A 当前已完成到可运行 pre-alpha：
 
 ```text
 M0: PTY backend selection and single-terminal spike — PASS
 M1: embedded pwsh.exe terminal — implemented
 M2: multi-session sidebar — implemented and runtime-verified
+M3-A: Claude Code / Codex process detection — implemented and unit-tested
 ```
 
 下一步进入：
 
 ```text
-M3: Claude Code / Codex process detection
+M4: basic status detection
 ```
 
-M2 已验证的关键行为：
+M3-A 已验证的关键行为：
 
-- `New Session` 按钮可见并能创建真实 `pwsh.exe` session。
-- 多 session 使用独立 PTY 和独立 xterm.js instance。
-- session card 可切换 active terminal，输出按 session 归属写入。
-- `exit` 后 UI 更新为 `exited / shell exited`。
-- exited session 再输入时只显示一次友好提示，不再重复触发 backend `write failed`。
-- 关闭 app 时明确提示并终止 active sessions。
+- backend 每 1.5 秒轮询 live session 的 `pwsh.exe` process tree。
+- Session Card 显示 `PowerShell` / `Claude Code` / `Codex` / `Unknown agent` badge。
+- direct child `claude.exe` / `codex.exe` 可自动识别。
+- npm wrapper / `node.exe` 只有结合明确 command line 证据才自动分类。
+- `node.exe` command line 不清楚时显示 `unknown`，不会误报。
+- conflicting Claude/Codex evidence 显示 `unknown`。
+- manual override 可手动设置 agent kind，override badge 可见，切回 Auto 后恢复自动检测。
 
 ## License
 

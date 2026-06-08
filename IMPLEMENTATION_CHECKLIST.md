@@ -3,7 +3,7 @@
 状态：APPROVED  
 日期：2026-06-07  
 用途：后续写代码时的工程执行参考
-当前实现状态：M0/M1/M2 已实现到 pre-alpha；M2 已完成运行时验证；下一阶段是 M3。
+当前实现状态：M0/M1/M2/M3-A 已实现到 pre-alpha；M3-A 已完成自动 agent kind 检测、Session Card badge 和 manual override；下一阶段是 M4。
 
 ## 0. 总体开发顺序
 
@@ -155,18 +155,18 @@ v1 使用本地 JSON。当前 M2 slice 尚未实现持久化，仍属于后续�
 
 ### 4.1 要做
 
-- [ ] 每 1-2 秒 poll process tree。
-- [ ] 识别 `pwsh.exe` direct child。
-- [ ] 识别 Claude Code。
-- [ ] 识别 Codex。
-- [ ] 处理 npm wrapper / `node.exe` 模糊场景。
-- [ ] 没有 agent 时显示 `shell`。
-- [ ] agent 退出后恢复 `shell`。
-- [ ] 同一 session 先 Claude 后 Codex 时跟随当前活跃进程。
-- [ ] ambiguous 时显示 `unknown`。
-- [ ] 支持 agent kind manual override。
-- [ ] override badge 可见。
-- [ ] override 可清除回 auto-detect。
+- [x] 每 1-2 秒 poll process tree。
+- [x] 识别 `pwsh.exe` direct child。
+- [x] 识别 Claude Code。
+- [x] 识别 Codex。
+- [x] 处理 npm wrapper / `node.exe` 模糊场景。
+- [x] 没有 agent 时显示 `shell`。
+- [x] agent 退出后恢复 `shell`。
+- [x] 同一 session 先 Claude 后 Codex 时跟随当前活跃进程。
+- [x] ambiguous 时显示 `unknown`。
+- [x] 支持 agent kind manual override。
+- [x] override badge 可见。
+- [x] override 可清除回 auto-detect。
 
 ### 4.2 检测优先级
 
@@ -181,10 +181,10 @@ v1 使用本地 JSON。当前 M2 slice 尚未实现持久化，仍属于后续�
 
 ### 4.3 `node.exe` 规则
 
-- [ ] `node.exe` 不能单独作为 positive match。
-- [ ] 必须结合 command line。
-- [ ] 如果 command line 不清楚，显示 `unknown`。
-- [ ] output signature 只能放到 `statusReason`，不能硬分类。
+- [x] `node.exe` 不能单独作为 positive match。
+- [x] 必须结合 command line。
+- [x] 如果 command line 不清楚，显示 `unknown`。
+- [x] output signature 只能放到 `statusReason`，不能硬分类。
 
 ## 5. M4：基础状态识别
 
@@ -344,12 +344,12 @@ type Session = {
   - [ ] rolling buffer 跨 chunk
   - [ ] bounded statusReason
 
-- [ ] `process_inspector.rs`
-  - [ ] direct child claude
-  - [ ] direct child codex
-  - [ ] ambiguous node.exe
-  - [ ] helper child keeps parent agent
-  - [ ] conflicting evidence → unknown
+- [x] `process_inspector.rs`
+  - [x] direct child claude
+  - [x] direct child codex
+  - [x] ambiguous node.exe
+  - [x] helper child keeps parent agent
+  - [x] conflicting evidence → unknown
 
 - [ ] `storage.rs`
   - [ ] schema version
@@ -426,7 +426,7 @@ type Session = {
 
 ## 11. 当前最高优先级任务
 
-M0/M1/M2 当前已完成到 pre-alpha slice。
+M0/M1/M2/M3-A 当前已完成到 pre-alpha slice。
 
 已完成：
 
@@ -435,21 +435,22 @@ M0/M1/M2 当前已完成到 pre-alpha slice。
 - M1 终端日常可用性补强：Ctrl+L、Copy/Paste 按钮、Ctrl+Shift+C、Ctrl+Shift+V、关闭确认、`pwsh.exe`/cwd 启动诊断。
 - M2 多 session sidebar：独立 PTY、独立 xterm.js instance、session card 切换、`pty-output` / `pty-exit` / `pty-closed` lifecycle。
 - app close 时 active sessions 统一确认/清理。
+- M3-A Claude Code / Codex process detection：backend 轮询 process tree，Session Card 显示 agent badge，支持 manual override / clear override。
 
-已验证的 M2 runtime 行为：
+已验证的 M3-A 行为：
 
-- `New Session` 按钮布局可见，能创建真实 `pwsh.exe` session。
-- 多 session 由 backend `HashMap<session_id, PtySession>` 管理。
-- `pty-output` / `pty-exit` / `pty-closed` 事件都携带 `sessionId`，前端按 session 写入对应 xterm.js instance。
-- 点击 session card 可切换 active terminal。
-- close session 只关闭对应 PTY/session runtime。
-- 自然输入 `exit` 后 UI 更新为 `exited / shell exited`。
-- exited session 再输入时，前端只显示一次友好提示，不再重复向 backend 写入并产生 `write failed`。
+- backend 每 1.5 秒检查 live session 的 `pwsh.exe` process tree。
+- direct child `claude.exe` / `codex.exe` 可分类为 Claude Code / Codex。
+- npm wrapper / `node.exe` 只有结合明确 command line 证据才分类，否则显示 `unknown`。
+- conflicting Claude/Codex evidence 显示 `unknown`。
+- 没有 agent child process 时显示 `shell` / `PowerShell`。
+- Session Card 显示 agent badge、检测 reason 和 override badge。
+- manual override 只改 UI metadata，不发送终端输入；清除 override 后恢复 auto detection。
 
 下一步：
 
 ```text
-T3: M3 Claude Code / Codex process detection
+T4: M4 basic status detection
 ```
 
-M3 前建议先明确 process detection 与 session card 状态字段的最小数据模型。
+M4 前建议先补 rolling buffer 和窄匹配 status detector 设计，避免把 output pattern 误报成 agent kind。

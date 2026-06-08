@@ -1,11 +1,11 @@
 import { invoke } from "@tauri-apps/api/core";
 import { listen, type UnlistenFn } from "@tauri-apps/api/event";
 import { getCurrentWindow } from "@tauri-apps/api/window";
-import { FitAddon } from "@xterm/addon-fit";
-import { Terminal } from "@xterm/xterm";
+import type { FitAddon } from "@xterm/addon-fit";
+import type { Terminal } from "@xterm/xterm";
 import { useEffect, useRef, useState } from "react";
 import { Sidebar } from "./Sidebar";
-import type { Session } from "../types/session";
+import type { AgentKind, Session, SessionStatus } from "../types/session";
 
 type PtyOutput = {
   sessionId: string;
@@ -21,13 +21,34 @@ type PtyLifecycleEvent = {
   sessionId: string;
 };
 
+type AgentDetected = {
+  sessionId: string;
+  autoAgentKind: AgentKind;
+  activeAgentPid?: number;
+  reason: string;
+};
+
 type TerminalRuntime = {
   terminal: Terminal;
   fitAddon: FitAddon;
 };
 
+type TerminalModules = {
+  Terminal: typeof import("@xterm/xterm").Terminal;
+  FitAddon: typeof import("@xterm/addon-fit").FitAddon;
+};
+
 const DEFAULT_CWD = "E:\\Code-All\\wrapx";
 const MAX_LIVE_SESSIONS = 8;
+
+let terminalModulesPromise: Promise<TerminalModules> | null = null;
+
+function loadTerminalModules() {
+  terminalModulesPromise ??= Promise.all([import("@xterm/xterm"), import("@xterm/addon-fit")]).then(
+    ([xterm, fit]) => ({ Terminal: xterm.Terminal, FitAddon: fit.FitAddon }),
+  );
+  return terminalModulesPromise;
+}
 
 export function TerminalView() {
   const hostsRef = useRef<Record<string, HTMLDivElement | null>>({});
@@ -69,52 +90,20 @@ export function TerminalView() {
     const unlisteners: UnlistenFn[] = [];
     const appWindow = getCurrentWindow();
 
-    void appWindow.onCloseRequested(async (event) => {
+    void Promise.all([
+      appWindow.setClosable(true),
+      appWindow.setMinimizable(true),
+      appWindow.setMaximizable(true),
+    ]).catch(() => undefined);
+
+    void appWindow.onCloseRequested((event) => {
+      event.preventDefault();
       if (appCloseInProgressRef.current) {
         return;
       }
 
-      const activeSessions = sessionsRef.current.filter(
-        (session) => session.status === "starting" || session.status === "running",
-      );
-      if (activeSessions.length === 0) {
-        return;
-      }
-
-      event.preventDefault();
-      const label = activeSessions.length === 1 ? activeSessions[0].name : `${activeSessions.length} sessions`;
-      if (!window.confirm(`Close WrapX and terminate ${label}?`)) {
-        focusActiveTerminal();
-        return;
-      }
-
-      appCloseInProgressRef.current = true;
-      activeSessions.forEach((session) => closedSessionIdsRef.current.add(session.id));
-      replaceSessions(
-        sessionsRef.current.map((session) =>
-          activeSessions.some((activeSession) => activeSession.id === session.id)
-            ? { ...session, status: "closed", statusMessage: "closing..." }
-            : session,
-        ),
-      );
-
-      try {
-        await invoke("pty_close_all");
-      } catch {
-        appCloseInProgressRef.current = false;
-        activeSessions.forEach((session) => closedSessionIdsRef.current.delete(session.id));
-        replaceSessions(
-          sessionsRef.current.map((session) =>
-            activeSessions.some((activeSession) => activeSession.id === session.id)
-              ? { ...session, status: "error", statusMessage: "close failed" }
-              : session,
-          ),
-        );
-        focusActiveTerminal();
-        return;
-      }
-
-      await appWindow.destroy();
+      const activeSessions = sessionsRef.current.filter((session) => isLiveSessionStatus(session.status));
+      void handleAppCloseRequest(activeSessions);
     }).then((unlisten) => {
       if (cancelled) {
         unlisten();
@@ -131,10 +120,39 @@ export function TerminalView() {
       }
 
       runtime.terminal.write(Uint8Array.from(data));
-      updateSession(sessionId, {
-        status: "running",
+      updateSessionWith(sessionId, (session) => ({
+        ...session,
+        status: session.status === "starting" ? statusFromAgentKind(session.agentKind) : session.status,
         statusMessage: "output received",
         lastActivityAt: new Date().toISOString(),
+      }));
+    }).then((unlisten) => {
+      if (cancelled) {
+        unlisten();
+      } else {
+        unlisteners.push(unlisten);
+      }
+    });
+
+    void listen<AgentDetected>("agent-detected", (event) => {
+      const { sessionId, autoAgentKind, activeAgentPid, reason } = event.payload;
+      updateSessionWith(sessionId, (session) => {
+        if (!isLiveSessionStatus(session.status)) {
+          return session;
+        }
+
+        const agentKind = session.agentKindOverride ?? autoAgentKind;
+        return {
+          ...session,
+          autoAgentKind,
+          agentKind,
+          activeAgentPid,
+          agentReason: reason,
+          agentDetectedAt: new Date().toISOString(),
+          status: statusFromAgentKind(agentKind),
+          statusMessage: reason,
+          lastActivityAt: new Date().toISOString(),
+        };
       });
     }).then((unlisten) => {
       if (cancelled) {
@@ -196,52 +214,49 @@ export function TerminalView() {
       id: sessionId,
       name,
       cwd,
+      autoAgentKind: "none",
+      agentKind: "none",
       status: "starting",
       statusMessage: "starting pwsh.exe...",
       createdAt: now,
       lastActivityAt: now,
     };
 
-    const terminal = createTerminal(sessionId, name, () => canWriteToSession(sessionId));
-    const fitAddon = new FitAddon();
-    terminal.loadAddon(fitAddon);
-    terminalRuntimesRef.current.set(sessionId, { terminal, fitAddon });
-
-    terminal.attachCustomKeyEventHandler((event) => {
-      if (event.type !== "keydown") {
-        return true;
-      }
-
-      const key = event.key.toLowerCase();
-      if (event.ctrlKey && !event.altKey && !event.metaKey && key === "l") {
-        event.preventDefault();
-        clearTerminal(sessionId);
-        return false;
-      }
-
-      if (event.ctrlKey && event.shiftKey && !event.altKey && !event.metaKey && key === "c") {
-        event.preventDefault();
-        void copyTerminalSelection(sessionId);
-        return false;
-      }
-
-      if (event.ctrlKey && event.shiftKey && !event.altKey && !event.metaKey && key === "v") {
-        event.preventDefault();
-        void pasteClipboardText(sessionId);
-        return false;
-      }
-
-      return true;
-    });
-
     replaceSessions([...sessionsRef.current, session]);
     setActiveSession(sessionId);
 
     requestAnimationFrame(async () => {
       const host = hostsRef.current[sessionId];
-      const runtime = terminalRuntimesRef.current.get(sessionId);
-      if (!host || !runtime || !hasSession(sessionId) || closedSessionIdsRef.current.has(sessionId)) {
+      if (!host || !hasSession(sessionId) || closedSessionIdsRef.current.has(sessionId)) {
         return;
+      }
+
+      let runtime = terminalRuntimesRef.current.get(sessionId);
+      if (!runtime) {
+        try {
+          const { Terminal, FitAddon } = await loadTerminalModules();
+          if (!hasSession(sessionId) || closedSessionIdsRef.current.has(sessionId)) {
+            return;
+          }
+
+          const terminal = createTerminal(Terminal, sessionId, name, () => canWriteToSession(sessionId));
+          const fitAddon = new FitAddon();
+          terminal.loadAddon(fitAddon);
+          attachTerminalKeys(terminal, sessionId, {
+            clearTerminal,
+            copyTerminalSelection,
+            pasteClipboardText,
+          });
+          terminalRuntimesRef.current.set(sessionId, { terminal, fitAddon });
+          runtime = { terminal, fitAddon };
+        } catch (error) {
+          updateSession(sessionId, {
+            status: "error",
+            statusMessage: "terminal load failed",
+            lastActivityAt: new Date().toISOString(),
+          });
+          return;
+        }
       }
 
       runtime.terminal.open(host);
@@ -264,7 +279,7 @@ export function TerminalView() {
 
         updateSession(sessionId, {
           shellPid: result.pid,
-          status: "running",
+          status: "shell",
           statusMessage: result.pid ? `pwsh.exe pid ${result.pid}` : "pwsh.exe running",
           lastActivityAt: new Date().toISOString(),
         });
@@ -353,11 +368,15 @@ export function TerminalView() {
 
   function canWriteToSession(sessionId: string) {
     return sessionsRef.current.some(
-      (session) => session.id === sessionId && session.status === "running",
+      (session) => session.id === sessionId && isLiveSessionStatus(session.status),
     );
   }
 
   function updateSession(sessionId: string, patch: Partial<Session>) {
+    updateSessionWith(sessionId, (session) => ({ ...session, ...patch }));
+  }
+
+  function updateSessionWith(sessionId: string, update: (session: Session) => Session) {
     let changed = false;
     const nextSessions = sessionsRef.current.map((session) => {
       if (session.id !== sessionId) {
@@ -365,12 +384,30 @@ export function TerminalView() {
       }
 
       changed = true;
-      return { ...session, ...patch };
+      return update(session);
     });
 
     if (changed) {
       replaceSessions(nextSessions);
     }
+  }
+
+  function setAgentOverride(sessionId: string, override?: AgentKind) {
+    updateSessionWith(sessionId, (session) => {
+      if (!isLiveSessionStatus(session.status)) {
+        return session;
+      }
+
+      const agentKind = override ?? session.autoAgentKind;
+      return {
+        ...session,
+        agentKindOverride: override,
+        agentKind,
+        status: statusFromAgentKind(agentKind),
+        statusMessage: override ? `manual override: ${agentKind}` : session.agentReason,
+      };
+    });
+    focusActiveTerminal();
   }
 
   function fitAndResize(sessionId: string) {
@@ -497,6 +534,41 @@ export function TerminalView() {
     }
   }
 
+  async function handleAppCloseRequest(activeSessions: Session[]) {
+    if (activeSessions.length > 0) {
+      const label = activeSessions.length === 1 ? activeSessions[0].name : `${activeSessions.length} sessions`;
+      if (!window.confirm(`Close WrapX and terminate ${label}?`)) {
+        focusActiveTerminal();
+        return;
+      }
+    }
+
+    appCloseInProgressRef.current = true;
+    activeSessions.forEach((session) => closedSessionIdsRef.current.add(session.id));
+    replaceSessions(
+      sessionsRef.current.map((session) =>
+        activeSessions.some((activeSession) => activeSession.id === session.id)
+          ? { ...session, status: "closed", statusMessage: "closing..." }
+          : session,
+      ),
+    );
+
+    try {
+      await invoke("app_exit");
+    } catch {
+      appCloseInProgressRef.current = false;
+      activeSessions.forEach((session) => closedSessionIdsRef.current.delete(session.id));
+      replaceSessions(
+        sessionsRef.current.map((session) =>
+          activeSessions.some((activeSession) => activeSession.id === session.id)
+            ? { ...session, status: "error", statusMessage: "close failed" }
+            : session,
+        ),
+      );
+      focusActiveTerminal();
+    }
+  }
+
   return (
     <section className="workspace-card">
       <section className="terminal-card">
@@ -559,6 +631,7 @@ export function TerminalView() {
         disabled={sessions.length >= MAX_LIVE_SESSIONS}
         nextSessionNumber={sessionCounterRef.current}
         sessions={sessions}
+        onAgentOverride={setAgentOverride}
         onCloseSession={closeSession}
         onCreateSession={createSession}
         onSelectSession={selectSession}
@@ -567,9 +640,51 @@ export function TerminalView() {
   );
 }
 
-function createTerminal(sessionId: string, name: string, canWrite: () => boolean) {
+function attachTerminalKeys(
+  terminal: Terminal,
+  sessionId: string,
+  handlers: {
+    clearTerminal: (sessionId: string) => void;
+    copyTerminalSelection: (sessionId: string) => Promise<void>;
+    pasteClipboardText: (sessionId: string) => Promise<void>;
+  },
+) {
+  terminal.attachCustomKeyEventHandler((event) => {
+    if (event.type !== "keydown") {
+      return true;
+    }
+
+    const key = event.key.toLowerCase();
+    if (event.ctrlKey && !event.altKey && !event.metaKey && key === "l") {
+      event.preventDefault();
+      handlers.clearTerminal(sessionId);
+      return false;
+    }
+
+    if (event.ctrlKey && event.shiftKey && !event.altKey && !event.metaKey && key === "c") {
+      event.preventDefault();
+      void handlers.copyTerminalSelection(sessionId);
+      return false;
+    }
+
+    if (event.ctrlKey && event.shiftKey && !event.altKey && !event.metaKey && key === "v") {
+      event.preventDefault();
+      void handlers.pasteClipboardText(sessionId);
+      return false;
+    }
+
+    return true;
+  });
+}
+
+function createTerminal(
+  TerminalConstructor: TerminalModules["Terminal"],
+  sessionId: string,
+  name: string,
+  canWrite: () => boolean,
+) {
   let warnedReadonly = false;
-  const terminal = new Terminal({
+  const terminal = new TerminalConstructor({
     cursorBlink: true,
     convertEol: true,
     fontFamily: 'Cascadia Mono, Consolas, "Courier New", monospace',
@@ -599,4 +714,20 @@ function createTerminal(sessionId: string, name: string, canWrite: () => boolean
   });
 
   return terminal;
+}
+
+function statusFromAgentKind(agentKind: AgentKind): SessionStatus {
+  if (agentKind === "none") {
+    return "shell";
+  }
+
+  if (agentKind === "unknown") {
+    return "unknown";
+  }
+
+  return "running";
+}
+
+function isLiveSessionStatus(status: SessionStatus) {
+  return status === "starting" || status === "shell" || status === "running" || status === "unknown";
 }

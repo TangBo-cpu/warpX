@@ -26,6 +26,12 @@ pub struct StartedPty {
     pub reader: Box<dyn Read + Send>,
 }
 
+#[derive(Debug, Clone)]
+pub struct SessionRoot {
+    pub session_id: String,
+    pub shell_pid: u32,
+}
+
 struct PtySession {
     master: Box<dyn MasterPty + Send>,
     writer: Box<dyn Write + Send>,
@@ -79,6 +85,7 @@ impl PtyState {
             .map_err(to_error_string)?;
 
         let mut command = CommandBuilder::new(shell);
+        command.arg("-NoLogo");
         command.cwd(cwd);
 
         let child = pair
@@ -138,11 +145,15 @@ impl PtyState {
     }
 
     pub fn close(&self, session_id: &str) -> Result<(), String> {
-        let mut guard = self
-            .sessions
-            .lock()
-            .map_err(|_| "PTY state lock poisoned".to_string())?;
-        if let Some(mut session) = guard.remove(session_id) {
+        let mut session = {
+            let mut guard = self
+                .sessions
+                .lock()
+                .map_err(|_| "PTY state lock poisoned".to_string())?;
+            guard.remove(session_id)
+        };
+
+        if let Some(session) = session.as_mut() {
             session.kill();
         }
 
@@ -190,6 +201,23 @@ impl PtyState {
             .try_wait()
             .map(|status| Some(status.is_some()))
             .map_err(to_error_string)
+    }
+
+    pub fn session_roots(&self) -> Result<Vec<SessionRoot>, String> {
+        let guard = self
+            .sessions
+            .lock()
+            .map_err(|_| "PTY state lock poisoned".to_string())?;
+
+        Ok(guard
+            .iter()
+            .filter_map(|(session_id, session)| {
+                session.child.process_id().map(|shell_pid| SessionRoot {
+                    session_id: session_id.clone(),
+                    shell_pid,
+                })
+            })
+            .collect())
     }
 }
 

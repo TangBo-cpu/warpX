@@ -339,24 +339,24 @@ wrapx/
 
 ## 7. 当前建议的下一步
 
-当前项目已经完成 M0/M1/M2 pre-alpha slice：
+当前项目已经完成 M0/M1/M2/M3-A pre-alpha slice：
 
 ```text
 1. README.md 和 M0_PTY_SPIKE.md 已建立。
-2. Git 仓库已初始化，并在 M2 worktree 中开发。
+2. Git 仓库已初始化，并按 feature worktree 开发。
 3. Tauri + React 项目已 scaffold。
 4. M0 single-terminal spike 已 PASS。
 5. M1 embedded pwsh.exe terminal 已实现。
 6. M2 multi-session sidebar 已实现并做过运行时验证。
+7. M3-A Claude Code / Codex process detection 已实现并通过单元测试。
 ```
 
 正确下一步：
 
 ```text
-1. 清理 M2 worktree 的最终 git 状态。
-2. 补齐 app close 时 active sessions 统一确认/清理。
-3. 提交 M2 slice。
-4. 进入 M3 Claude Code / Codex process detection。
+1. 对 M3-A 做真实 `claude` / `codex` interactive session 手测。
+2. 清理并提交 M3-A worktree。
+3. 进入 M4 basic status detection：rolling buffer + 窄匹配 status detector。
 ```
 
 ## 8. 最小下一批文档建议

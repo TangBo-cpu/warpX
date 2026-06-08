@@ -15,7 +15,10 @@
         "title": "WrapX M2 Multi-session Sidebar",
         "width": 1180,
         "height": 760,
-        "resizable": true
+        "resizable": true,
+        "closable": true,
+        "minimizable": true,
+        "maximizable": true
       }
     ],
     "security": {
