@@ -85,6 +85,7 @@ impl PtyState {
             .map_err(to_error_string)?;
 
         let mut command = CommandBuilder::new(shell);
+        command.arg("-NoLogo");
         command.cwd(cwd);
 
         let child = pair
@@ -144,11 +145,15 @@ impl PtyState {
     }
 
     pub fn close(&self, session_id: &str) -> Result<(), String> {
-        let mut guard = self
-            .sessions
-            .lock()
-            .map_err(|_| "PTY state lock poisoned".to_string())?;
-        if let Some(mut session) = guard.remove(session_id) {
+        let mut session = {
+            let mut guard = self
+                .sessions
+                .lock()
+                .map_err(|_| "PTY state lock poisoned".to_string())?;
+            guard.remove(session_id)
+        };
+
+        if let Some(session) = session.as_mut() {
             session.kill();
         }
 

@@ -59,7 +59,7 @@ pub struct ProcessSnapshot {
 
 impl ProcessSnapshot {
     pub fn from_system() -> Self {
-        let mut system = System::new_all();
+        let mut system = System::new();
         system.refresh_processes();
 
         let processes = system
