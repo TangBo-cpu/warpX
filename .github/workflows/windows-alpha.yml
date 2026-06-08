@@ -1,0 +1,132 @@
+name: Windows alpha
+
+on:
+  workflow_dispatch:
+  push:
+    tags:
+      - "v*"
+
+permissions:
+  contents: write
+
+jobs:
+  build-windows-alpha:
+    name: Build Windows alpha installer
+    runs-on: windows-latest
+
+    env:
+      APP_VERSION: 0.5.0-alpha.0
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: lts/*
+          cache: npm
+
+      - name: Setup Rust
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Install npm dependencies
+        run: npm ci
+
+      - name: Check version consistency
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $expected = $env:APP_VERSION
+          $package = Get-Content package.json -Raw | ConvertFrom-Json -AsHashTable
+          $lock = Get-Content package-lock.json -Raw | ConvertFrom-Json -AsHashTable
+          $cargo = Get-Content src-tauri/Cargo.toml -Raw
+          $tauri = Get-Content src-tauri/tauri.conf.json -Raw | ConvertFrom-Json -AsHashTable
+
+          $cargoMatch = [regex]::Match($cargo, '(?m)^version\s*=\s*"([^"]+)"')
+          if (-not $cargoMatch.Success) {
+            throw 'Could not find package version in src-tauri/Cargo.toml.'
+          }
+
+          $versions = [ordered]@{
+            'package.json' = $package['version']
+            'package-lock.json' = $lock['version']
+            'package-lock.json packages[""]' = $lock['packages']['']['version']
+            'src-tauri/Cargo.toml' = $cargoMatch.Groups[1].Value
+            'src-tauri/tauri.conf.json' = $tauri['version']
+          }
+
+          foreach ($entry in $versions.GetEnumerator()) {
+            if ($entry.Value -ne $expected) {
+              throw "$($entry.Key) version '$($entry.Value)' does not match expected '$expected'."
+            }
+          }
+
+          if ($env:GITHUB_REF -like 'refs/tags/v*') {
+            $tagVersion = $env:GITHUB_REF_NAME -replace '^v', ''
+            if ($tagVersion -ne $expected) {
+              throw "Tag version '$tagVersion' does not match app version '$expected'."
+            }
+          }
+
+      - name: Build frontend
+        run: npm run build
+
+      - name: Run Rust tests
+        run: cargo test --manifest-path src-tauri/Cargo.toml
+
+      - name: Build Tauri NSIS installer
+        run: npm run tauri:build
+
+      - name: Collect installer and checksum
+        id: package
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $installerRoot = Join-Path $PWD 'src-tauri/target'
+          $installers = Get-ChildItem -Path $installerRoot -Recurse -File -Filter '*-setup.exe' |
+            Where-Object { $_.FullName -like '*\release\bundle\nsis\*' }
+
+          if ($installers.Count -eq 0) {
+            throw 'No NSIS setup executable found under src-tauri/target/**/release/bundle/nsis/.'
+          }
+
+          if ($installers.Count -ne 1) {
+            $paths = $installers | ForEach-Object { $_.FullName }
+            throw "Expected exactly one NSIS setup executable, found $($installers.Count):`n$($paths -join "`n")"
+          }
+
+          $assetsDir = Join-Path $PWD 'release-assets'
+          New-Item -ItemType Directory -Force -Path $assetsDir | Out-Null
+
+          $installer = $installers[0]
+          $assetInstaller = Join-Path $assetsDir $installer.Name
+          Copy-Item -Path $installer.FullName -Destination $assetInstaller -Force
+
+          $hash = (Get-FileHash -Algorithm SHA256 -Path $assetInstaller).Hash.ToLowerInvariant()
+          "$hash  $($installer.Name)" | Set-Content -Path (Join-Path $assetsDir 'SHA256SUMS.txt') -Encoding ascii
+
+          "installer_name=$($installer.Name)" >> $env:GITHUB_OUTPUT
+          "installer_path=$assetInstaller" >> $env:GITHUB_OUTPUT
+
+      - name: Upload workflow artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: wrapx-${{ env.APP_VERSION }}-windows-alpha
+          path: release-assets/*
+          if-no-files-found: error
+
+      - name: Publish GitHub pre-release
+        if: startsWith(github.ref, 'refs/tags/v')
+        uses: softprops/action-gh-release@v2
+        with:
+          prerelease: true
+          name: WrapX ${{ github.ref_name }}
+          body: |
+            WrapX Windows alpha release.
+
+            Commit: ${{ github.sha }}
+
+            This M5 alpha proves install + launch + one minimal `pwsh.exe` session smoke test.
+            The installer is unsigned; Windows may show a warning before install.
+          files: release-assets/*

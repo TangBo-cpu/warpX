@@ -238,23 +238,27 @@ v1 使用本地 JSON。当前 M2 slice 尚未实现持久化，仍属于后续�
 
 ### 6.1 要做
 
-- [ ] GitHub Actions Windows build。
-- [ ] Tauri Windows artifact。
-- [ ] GitHub Releases 发布。
-- [ ] checksums 由 CI 生成。
-- [ ] release notes 链接 commit SHA。
-- [ ] README 写安装步骤。
-- [ ] README 写 prerequisites。
-- [ ] README 写 unsigned warning。
-- [ ] 考虑 portable zip。
+- [x] app identity 升级到 `0.5.0-alpha.0`，窗口标题改为 `WrapX`。
+- [x] Tauri bundle 启用，并收窄为 NSIS installer target。
+- [x] GitHub Actions Windows build workflow。
+- [x] workflow_dispatch dry-run artifact 上传。
+- [x] version tag 触发 GitHub pre-release 发布。
+- [x] checksums 由 CI 生成 `SHA256SUMS.txt`。
+- [x] release notes 链接 commit SHA。
+- [x] README 写安装步骤。
+- [x] README 写 prerequisites。
+- [x] README 写 unsigned warning。
+- [x] README 写可选 SHA256 校验。
+- [x] README 写 install + launch + one `pwsh.exe` session smoke test。
+- [x] portable zip / MSI / code signing / updater / cross-platform build 明确 deferred。
 
 ### 6.2 release 验收
 
+- [ ] GitHub Actions Windows run 可构建 exactly one NSIS installer。
+- [ ] GitHub pre-release 包含 installer 和 `SHA256SUMS.txt`。
 - [ ] clean Windows machine / VM 可安装。
 - [ ] app 不依赖开发环境启动。
-- [ ] 能检测 `pwsh.exe`。
-- [ ] missing `claude` 有明确提示。
-- [ ] missing `codex` 有明确提示。
+- [ ] 能启动一个真实 `pwsh.exe` session。
 - [ ] unsigned Windows warning 已在 README 说明。
 
 ## 7. 需要实现的模块
@@ -453,7 +457,7 @@ M0/M1/M2/M3-A/M4 当前已完成到 pre-alpha slice。
 下一步：
 
 ```text
-T5: Windows alpha release
+T5: Windows alpha release validation
 ```
 
-M5 前建议先做真实 `claude` / `codex` interactive session 手测，确认 M4 状态提示不会误触发或覆盖 terminal lifecycle 状态。
+M5 当前本地实现聚焦 installer lane：app identity、NSIS bundle config、Windows workflow、checksum、tag pre-release、README install/smoke test。M5 release 不能只靠本地验证宣布完成；必须再跑一次 GitHub Actions Windows build，并确认 release assets 中 exactly one NSIS installer 和 `SHA256SUMS.txt` 都存在。

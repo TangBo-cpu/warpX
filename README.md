@@ -8,7 +8,7 @@ WrapX 是一个 Windows-first 的多 PowerShell / 多 CLI Agent GUI 控制台。
 WrapX = embedded PowerShell + multi-session sidebar + conservative agent status
 ```
 
-当前状态：pre-alpha；M0/M1/M2/M3-A/M4 已实现并通过验证，下一阶段是 M5 Windows alpha release。
+当前状态：pre-alpha；M0/M1/M2/M3-A/M4 已实现并通过验证，M5 Windows alpha installer lane 已配置。
 
 已完成：
 
@@ -215,6 +215,40 @@ v1 默认限制：
 - Codex CLI，可选但建议
 - `jq`，建议安装，gstack 任务聚合会用到
 
+## Windows alpha 安装（M5）
+
+M5 的发布目标是 GitHub pre-release 中的 Windows NSIS 安装器。版本标签（例如 `v0.5.0-alpha.0`）会触发 Windows CI 构建，并在 release assets 中提供安装器和 `SHA256SUMS.txt`；手动 workflow dispatch 只用于 dry-run artifact 验证，不创建 GitHub Release。
+
+### 前置要求
+
+- Windows 10/11。
+- `pwsh.exe` 必须在 PATH 中；WrapX 默认启动真实 PowerShell 会话。
+- Microsoft Edge WebView2 Runtime：Tauri Windows 应用依赖 WebView2。M5 不单独固化 WebView2 bootstrap 策略；如果安装器、系统或 WrapX 启动时提示缺少 WebView2，请按提示安装 Microsoft Evergreen WebView2 Runtime 后再启动 WrapX。
+- Claude Code CLI / Codex CLI 是可选项；M5 只验证 install + launch + 一个最小 `pwsh.exe` session，不要求它们已安装。
+
+### 校验下载文件（可选但建议）
+
+在安装前，可以用 release assets 里的 `SHA256SUMS.txt` 校验安装器：
+
+```powershell
+Get-FileHash -Algorithm SHA256 .\WrapX_*.exe
+Get-Content .\SHA256SUMS.txt
+```
+
+确认 `Get-FileHash` 输出的 SHA256 与 `SHA256SUMS.txt` 中同名安装器的 hash 一致。
+
+### 安装和 smoke test
+
+1. 从 GitHub pre-release 下载 Windows 安装器和 `SHA256SUMS.txt`。
+2. 可选：按上面的步骤校验 SHA256。
+3. 运行安装器。
+4. 因为 M5 不包含 code signing，Windows 可能显示未知发布者或 SmartScreen 警告；只有在你信任该 GitHub release 来源时才继续安装。
+5. 启动 WrapX，确认主窗口标题为 `WrapX`。
+6. 创建一个 New Session。
+7. 确认终端里出现真实 `pwsh.exe` 提示符。
+
+M5 不证明 portable zip、MSI、code signing、automatic updater、跨平台构建，也不要求在干净机器上完整验证 Claude Code / Codex agent-status demo。
+
 ## 本机开发启动
 
 前端和 Tauri 开发：
@@ -230,6 +264,12 @@ npm run tauri:dev
 
 ```powershell
 npm run build
+```
+
+本机 Windows 打包校验（需要 Tauri/MSVC prerequisites）：
+
+```powershell
+npm run tauri:build
 ```
 
 Rust/Tauri 校验：
