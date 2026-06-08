@@ -339,7 +339,7 @@ wrapx/
 
 ## 7. 当前建议的下一步
 
-当前项目已经完成 M0/M1/M2/M3-A pre-alpha slice：
+当前项目已经完成 M0/M1/M2/M3-A/M4 pre-alpha slice：
 
 ```text
 1. README.md 和 M0_PTY_SPIKE.md 已建立。
@@ -349,14 +349,15 @@ wrapx/
 5. M1 embedded pwsh.exe terminal 已实现。
 6. M2 multi-session sidebar 已实现并做过运行时验证。
 7. M3-A Claude Code / Codex process detection 已实现并通过单元测试。
+8. M4 basic status detection 已实现 bounded rolling buffer、窄匹配 detector 和 Session Card 状态展示。
 ```
 
 正确下一步：
 
 ```text
-1. 对 M3-A 做真实 `claude` / `codex` interactive session 手测。
-2. 清理并提交 M3-A worktree。
-3. 进入 M4 basic status detection：rolling buffer + 窄匹配 status detector。
+1. 对 M4 做真实 `claude` / `codex` interactive session 手测。
+2. 清理并提交 M4 worktree。
+3. 进入 M5 Windows alpha release：build artifact、release notes、checksums、unsigned warning。
 ```
 
 ## 8. 最小下一批文档建议

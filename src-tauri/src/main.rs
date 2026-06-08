@@ -1,10 +1,12 @@
 mod commands;
 mod process_inspector;
 mod pty_manager;
+mod status_detector;
 
 fn main() {
     tauri::Builder::default()
         .manage(pty_manager::PtyState::default())
+        .manage(status_detector::StatusDetectorState::default())
         .setup(|app| {
             process_inspector::spawn_agent_detector(app.handle().clone());
             Ok(())

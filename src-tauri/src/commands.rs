@@ -1,4 +1,5 @@
 use crate::pty_manager::PtyState;
+use crate::status_detector::StatusDetectorState;
 use serde::{Deserialize, Serialize};
 use std::io::Read;
 use std::path::PathBuf;
@@ -81,17 +82,16 @@ pub fn pty_close(
     session_id: String,
 ) -> Result<(), String> {
     state.close(&session_id)?;
+    app.state::<StatusDetectorState>().forget(&session_id);
     let _ = app.emit("pty-closed", PtyLifecycleEvent { session_id });
     Ok(())
 }
 
 #[tauri::command]
-pub fn pty_close_all(
-    app: AppHandle,
-    state: State<'_, PtyState>,
-) -> Result<Vec<String>, String> {
+pub fn pty_close_all(app: AppHandle, state: State<'_, PtyState>) -> Result<Vec<String>, String> {
     let session_ids = state.close_all()?;
     for session_id in session_ids.iter() {
+        app.state::<StatusDetectorState>().forget(session_id);
         let _ = app.emit(
             "pty-closed",
             PtyLifecycleEvent {
@@ -104,7 +104,9 @@ pub fn pty_close_all(
 
 #[tauri::command]
 pub fn app_exit(app: AppHandle, state: State<'_, PtyState>) -> Result<(), String> {
-    state.close_all()?;
+    for session_id in state.close_all()? {
+        app.state::<StatusDetectorState>().forget(&session_id);
+    }
     app.exit(0);
     Ok(())
 }
@@ -119,12 +121,20 @@ fn spawn_output_reader(app: AppHandle, session_id: String, mut reader: Box<dyn R
                     break;
                 }
                 Ok(read) => {
+                    let data = buffer[..read].to_vec();
                     let payload = PtyOutput {
                         session_id: session_id.clone(),
-                        data: buffer[..read].to_vec(),
+                        data: data.clone(),
                     };
                     if app.emit("pty-output", payload).is_err() {
                         break;
+                    }
+
+                    if let Some(status) = app
+                        .state::<StatusDetectorState>()
+                        .observe_output(&session_id, &data)
+                    {
+                        let _ = app.emit("session-status", status);
                     }
                 }
                 Err(error) => {
@@ -157,6 +167,7 @@ fn spawn_exit_watcher(app: AppHandle, session_id: String) {
 
 fn emit_exit_once(app: &AppHandle, session_id: &str) {
     if app.state::<PtyState>().forget(session_id).unwrap_or(false) {
+        app.state::<StatusDetectorState>().forget(session_id);
         let _ = app.emit(
             "pty-exit",
             PtyLifecycleEvent {

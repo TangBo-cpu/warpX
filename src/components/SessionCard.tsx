@@ -15,6 +15,25 @@ const AGENT_LABELS: Record<AgentKind, string> = {
   unknown: "Unknown agent",
 };
 
+function formatStatusReason(session: Session) {
+  if (!session.statusReason) {
+    return undefined;
+  }
+
+  if (!session.statusReasonAt) {
+    return session.statusReason;
+  }
+
+  const detectedAt = Date.parse(session.statusReasonAt);
+  if (Number.isNaN(detectedAt)) {
+    return session.statusReason;
+  }
+
+  const ageSeconds = Math.max(0, Math.floor((Date.now() - detectedAt) / 1000));
+  const age = ageSeconds < 60 ? `${ageSeconds}s ago` : `${Math.floor(ageSeconds / 60)}m ago`;
+  return `${session.statusReason} · ${age}`;
+}
+
 export function SessionCard({
   session,
   active,
@@ -22,6 +41,8 @@ export function SessionCard({
   onClose,
   onAgentOverride,
 }: SessionCardProps) {
+  const statusReason = formatStatusReason(session);
+
   return (
     <article
       className={`session-card${active ? " is-active" : ""}`}
@@ -49,7 +70,11 @@ export function SessionCard({
         <span className="session-cwd" title={session.cwd}>
           {session.cwd}
         </span>
-        {session.agentReason ? (
+        {statusReason ? (
+          <span className="session-message" title={session.statusReason}>
+            {statusReason}
+          </span>
+        ) : session.agentReason ? (
           <span className="session-message" title={session.agentReason}>
             {session.agentReason}
           </span>

@@ -3,7 +3,7 @@
 状态：APPROVED  
 日期：2026-06-07  
 产品方向：Windows-first 多 PowerShell / 多 CLI Agent GUI 控制台
-当前实现进度：M0/M1/M2/M3-A pre-alpha 已完成；下一阶段是 M4 basic status detection。
+当前实现进度：M0/M1/M2/M3-A/M4 pre-alpha 已完成；下一阶段是 M5 Windows alpha release。
 
 ## 1. 一句话定位
 
@@ -231,19 +231,20 @@ type SessionStatus =
   | "unknown";
 ```
 
-当前 M3-A 已实现 agent kind 检测：backend 基于每个 live `pwsh.exe` 的 process tree 自动识别 `claude-code` / `codex` / `unknown` / `none`，Session Card 显示 agent badge，并支持 manual override。下面的 `waiting-input`、`approval-needed`、`error` 等输出状态仍属于 M4。
+当前 M3-A 已实现 agent kind 检测：backend 基于每个 live `pwsh.exe` 的 process tree 自动识别 `claude-code` / `codex` / `unknown` / `none`，Session Card 显示 agent badge，并支持 manual override。当前 M4 已实现 Rust backend bounded rolling buffer 和窄匹配 status detector，通过 `session-status` 事件更新 `waiting-input`、`approval-needed`、`error`、`shell`、`running`、`unknown` 等输出状态。
 
 状态优先级：
 
 ```text
 1. shell process exited                 → exited
-2. detected active child agent          → agentKind = claude-code/codex
+2. session explicitly closed            → closed
 3. output matches approval pattern      → approval-needed
-4. output matches error pattern         → error
-5. output matches input prompt          → waiting-input
-6. child agent exists + recent output   → running
-7. child agent exists + long idle       → unknown
-8. no detected child agent              → shell
+4. output matches input prompt          → waiting-input
+5. output matches narrow error pattern  → error
+6. output matches shell prompt          → shell
+7. recent terminal activity             → running
+8. weak/conflicting signals             → unknown
+9. detected active child agent          → agentKind = claude-code/codex
 ```
 
 ## 10. 隐私和存储原则
@@ -299,7 +300,7 @@ MVP 成功的定义：
 3. 用户能手动运行 `claude` 和 `codex`。
 4. 切换 session 不丢输出、不串输出。
 5. 侧边栏能显示当前 agent 类型。
-6. 状态显示保守且可解释。
+6. 状态显示保守且可解释，M4 通过内存 bounded rolling buffer 做窄匹配。
 7. approval-needed 卡片只聚焦终端，不自动输入。
 8. 关闭 app 时明确提示会终止 active sessions。
 9. 用户能从 release artifact 安装，而不是只能源码运行。
