@@ -4,6 +4,8 @@ export type SessionStatus =
   | "starting"
   | "shell"
   | "running"
+  | "waiting-input"
+  | "approval-needed"
   | "unknown"
   | "exited"
   | "closed"
@@ -22,6 +24,8 @@ export type Session = {
   agentDetectedAt?: string;
   status: SessionStatus;
   statusMessage?: string;
+  statusReason?: string;
+  statusReasonAt?: string;
   createdAt: string;
   lastActivityAt?: string;
 };

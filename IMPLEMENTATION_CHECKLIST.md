@@ -3,7 +3,7 @@
 状态：APPROVED  
 日期：2026-06-07  
 用途：后续写代码时的工程执行参考
-当前实现状态：M0/M1/M2/M3-A 已实现到 pre-alpha；M3-A 已完成自动 agent kind 检测、Session Card badge 和 manual override；下一阶段是 M4。
+当前实现状态：M0/M1/M2/M3-A/M4 已实现到 pre-alpha；M4 已完成 bounded rolling buffer、保守 status detector、`session-status` 事件和 Session Card 状态展示；下一阶段是 M5。
 
 ## 0. 总体开发顺序
 
@@ -192,45 +192,45 @@ v1 使用本地 JSON。当前 M2 slice 尚未实现持久化，仍属于后续�
 
 ### 5.1 状态
 
-- [ ] `shell`
-- [ ] `running`
-- [ ] `waiting-input`
-- [ ] `approval-needed`
-- [ ] `error`
-- [ ] `exited`
-- [ ] `unknown`
+- [x] `shell`
+- [x] `running`
+- [x] `waiting-input`
+- [x] `approval-needed`
+- [x] `error`
+- [x] `exited`
+- [x] `unknown`
 
 ### 5.2 规则
 
-- [ ] 默认窄匹配。
-- [ ] 不用泛词硬匹配：`error`、`failed`、`continue`、`approve`、`y/n`。
-- [ ] weak match → `unknown` 或 `possible-*` reason。
-- [ ] prompt pattern → `waiting-input`。
-- [ ] approval pattern → `approval-needed`。
-- [ ] idle without prompt → `unknown`。
-- [ ] conflicting signals → `unknown`。
-- [ ] status changes store `statusReason`。
-- [ ] status changes store `statusReasonAt`。
-- [ ] stale reason 显示年龄。
+- [x] 默认窄匹配。
+- [x] 不用泛词硬匹配：`error`、`failed`、`continue`、`approve`、`y/n`。
+- [x] weak match → `unknown` 或 bounded reason。
+- [x] prompt pattern → `waiting-input`。
+- [x] approval pattern → `approval-needed`。
+- [x] idle without prompt → `unknown`。
+- [x] conflicting signals → `unknown`。
+- [x] status changes store `statusReason`。
+- [x] status changes store `statusReasonAt`。
+- [x] stale reason 显示年龄。
 
 ### 5.3 rolling buffer
 
-- [ ] 每 session 维护 bounded normalized text buffer。
-- [ ] 默认 8 KB 或 200 行。
-- [ ] 支持跨 PTY chunk 匹配。
-- [ ] statusReason 是 bounded excerpt。
-- [ ] terminal rendering 仍接收 raw PTY data。
-- [ ] status normalization 不污染终端输出。
+- [x] 每 session 维护 bounded normalized text buffer。
+- [x] 默认 8 KB 或 200 行。
+- [x] 支持跨 PTY chunk 匹配。
+- [x] statusReason 是 bounded short reason。
+- [x] terminal rendering 仍接收 raw PTY data。
+- [x] status normalization 不污染终端输出。
 
 ### 5.4 安全交互
 
-- [ ] approval-needed card 只聚焦终端。
-- [ ] 不发送 approval 文本。
-- [ ] 不发送按键。
+- [x] approval-needed card 只聚焦终端。
+- [x] 不发送 approval 文本。
+- [x] 不发送按键。
 - [ ] safe status action 只改 UI metadata：
   - [ ] mark as unknown
   - [ ] clear status reason
-  - [ ] clear agent override
+  - [x] clear agent override
 
 ## 6. M5：Windows alpha release
 
@@ -334,15 +334,15 @@ type Session = {
 
 ### 9.1 Rust 单元测试
 
-- [ ] `status_detector.rs`
-  - [ ] approval pattern
-  - [ ] input pattern
-  - [ ] error pattern
-  - [ ] idle → unknown
-  - [ ] conflicting signals → unknown
-  - [ ] generic words 不 hard-trigger
-  - [ ] rolling buffer 跨 chunk
-  - [ ] bounded statusReason
+- [x] `status_detector.rs`
+  - [x] approval pattern
+  - [x] input pattern
+  - [x] error pattern
+  - [x] idle → unknown
+  - [x] conflicting signals → unknown
+  - [x] generic words 不 hard-trigger
+  - [x] rolling buffer 跨 chunk
+  - [x] bounded statusReason
 
 - [x] `process_inspector.rs`
   - [x] direct child claude
@@ -391,7 +391,7 @@ type Session = {
 - [ ] multiline paste
 - [ ] 3 sessions switching
 - [ ] close one session, others survive
-- [ ] approval-needed card focuses terminal only
+- [x] approval-needed card focuses terminal only
 - [ ] app close confirmation
 
 ### 9.4 手动 QA
@@ -411,7 +411,7 @@ type Session = {
 
 - [ ] max live sessions: 8
 - [ ] xterm scrollback: 10,000 lines/session
-- [ ] status rolling buffer: 8 KB or 200 lines/session
+- [x] status rolling buffer: 8 KB or 200 lines/session
 - [ ] sidebar update max: 4/sec/session
 - [ ] process tree poll: 1-2 sec
 - [ ] git branch refresh: create + low-frequency/manual
@@ -426,7 +426,7 @@ type Session = {
 
 ## 11. 当前最高优先级任务
 
-M0/M1/M2/M3-A 当前已完成到 pre-alpha slice。
+M0/M1/M2/M3-A/M4 当前已完成到 pre-alpha slice。
 
 已完成：
 
@@ -436,8 +436,9 @@ M0/M1/M2/M3-A 当前已完成到 pre-alpha slice。
 - M2 多 session sidebar：独立 PTY、独立 xterm.js instance、session card 切换、`pty-output` / `pty-exit` / `pty-closed` lifecycle。
 - app close 时 active sessions 统一确认/清理。
 - M3-A Claude Code / Codex process detection：backend 轮询 process tree，Session Card 显示 agent badge，支持 manual override / clear override。
+- M4 basic status detection：backend bounded rolling buffer、窄匹配 status detector、`session-status` event、Session Card status reason / age。
 
-已验证的 M3-A 行为：
+已验证的 M3-A/M4 行为：
 
 - backend 每 1.5 秒检查 live session 的 `pwsh.exe` process tree。
 - direct child `claude.exe` / `codex.exe` 可分类为 Claude Code / Codex。
@@ -446,11 +447,13 @@ M0/M1/M2/M3-A 当前已完成到 pre-alpha slice。
 - 没有 agent child process 时显示 `shell` / `PowerShell`。
 - Session Card 显示 agent badge、检测 reason 和 override badge。
 - manual override 只改 UI metadata，不发送终端输入；清除 override 后恢复 auto detection。
+- `status_detector.rs` 已覆盖 approval/input/error/shell/running/unknown、跨 chunk、ANSI、bounded buffer、generic word negative tests。
+- `approval-needed` / `waiting-input` 是 UI 状态提示，不会自动发送 approval 文本或按键。
 
 下一步：
 
 ```text
-T4: M4 basic status detection
+T5: Windows alpha release
 ```
 
-M4 前建议先补 rolling buffer 和窄匹配 status detector 设计，避免把 output pattern 误报成 agent kind。
+M5 前建议先做真实 `claude` / `codex` interactive session 手测，确认 M4 状态提示不会误触发或覆盖 terminal lifecycle 状态。

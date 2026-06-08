@@ -8,7 +8,7 @@ WrapX 是一个 Windows-first 的多 PowerShell / 多 CLI Agent GUI 控制台。
 WrapX = embedded PowerShell + multi-session sidebar + conservative agent status
 ```
 
-当前状态：pre-alpha；M0/M1/M2/M3-A 已实现并通过验证，下一阶段是 M4 basic status detection。
+当前状态：pre-alpha；M0/M1/M2/M3-A/M4 已实现并通过验证，下一阶段是 M5 Windows alpha release。
 
 已完成：
 
@@ -19,6 +19,7 @@ WrapX = embedded PowerShell + multi-session sidebar + conservative agent status
 - M1 终端日常可用性补强：Ctrl+L、Copy/Paste 按钮、Ctrl+Shift+C、Ctrl+Shift+V、关闭确认、`pwsh.exe`/cwd 启动诊断。
 - M2 多 session sidebar：独立 PTY、独立 xterm.js instance、session card 切换、`pty-exit` / `pty-closed` lifecycle、app close active sessions confirm/cleanup。
 - M3-A agent kind detection：基于 `pwsh.exe` process tree 检测 Claude Code / Codex，Session Card 显示 agent badge，并支持 manual override。
+- M4 basic status detection：Rust backend 维护每 session bounded rolling buffer，保守识别 `shell` / `running` / `waiting-input` / `approval-needed` / `error` / `unknown`，并通过 `session-status` 事件更新 Session Card。
 
 ## 为什么做
 
@@ -245,19 +246,20 @@ cargo test --manifest-path src-tauri/Cargo.toml --test pty_smoke -- --nocapture
 
 ## 当前下一步
 
-M0/M1/M2/M3-A 当前已完成到可运行 pre-alpha：
+M0/M1/M2/M3-A/M4 当前已完成到可运行 pre-alpha：
 
 ```text
 M0: PTY backend selection and single-terminal spike — PASS
 M1: embedded pwsh.exe terminal — implemented
 M2: multi-session sidebar — implemented and runtime-verified
 M3-A: Claude Code / Codex process detection — implemented and unit-tested
+M4: basic status detection — implemented and unit-tested
 ```
 
 下一步进入：
 
 ```text
-M4: basic status detection
+M5: Windows alpha release
 ```
 
 M3-A 已验证的关键行为：

@@ -28,6 +28,13 @@ type AgentDetected = {
   reason: string;
 };
 
+type SessionStatusDetected = {
+  sessionId: string;
+  status: "shell" | "running" | "waiting-input" | "approval-needed" | "unknown" | "error";
+  reason: string;
+  detectedAtMs: number;
+};
+
 type TerminalRuntime = {
   terminal: Terminal;
   fitAddon: FitAddon;
@@ -123,9 +130,34 @@ export function TerminalView() {
       updateSessionWith(sessionId, (session) => ({
         ...session,
         status: session.status === "starting" ? statusFromAgentKind(session.agentKind) : session.status,
-        statusMessage: "output received",
+        statusMessage: session.statusMessage ?? "output received",
         lastActivityAt: new Date().toISOString(),
       }));
+    }).then((unlisten) => {
+      if (cancelled) {
+        unlisten();
+      } else {
+        unlisteners.push(unlisten);
+      }
+    });
+
+    void listen<SessionStatusDetected>("session-status", (event) => {
+      const { sessionId, status, reason, detectedAtMs } = event.payload;
+      updateSessionWith(sessionId, (session) => {
+        if (isTerminalSessionStatus(session.status)) {
+          return session;
+        }
+
+        const detectedAt = new Date(detectedAtMs).toISOString();
+        return {
+          ...session,
+          status,
+          statusReason: reason,
+          statusReasonAt: detectedAt,
+          statusMessage: reason,
+          lastActivityAt: detectedAt,
+        };
+      });
     }).then((unlisten) => {
       if (cancelled) {
         unlisten();
@@ -142,6 +174,9 @@ export function TerminalView() {
         }
 
         const agentKind = session.agentKindOverride ?? autoAgentKind;
+        const status = canAgentDetectionSetStatus(session.status, agentKind)
+          ? statusFromAgentKind(agentKind)
+          : session.status;
         return {
           ...session,
           autoAgentKind,
@@ -149,8 +184,8 @@ export function TerminalView() {
           activeAgentPid,
           agentReason: reason,
           agentDetectedAt: new Date().toISOString(),
-          status: statusFromAgentKind(agentKind),
-          statusMessage: reason,
+          status,
+          statusMessage: session.statusMessage ?? reason,
           lastActivityAt: new Date().toISOString(),
         };
       });
@@ -403,7 +438,9 @@ export function TerminalView() {
         ...session,
         agentKindOverride: override,
         agentKind,
-        status: statusFromAgentKind(agentKind),
+        status: canAgentDetectionSetStatus(session.status, agentKind)
+          ? statusFromAgentKind(agentKind)
+          : session.status,
         statusMessage: override ? `manual override: ${agentKind}` : session.agentReason,
       };
     });
@@ -590,7 +627,8 @@ export function TerminalView() {
         <div className="terminal-subbar">
           <span>{activeSession?.name ?? "No active session"}</span>
           <span>
-            {activeSession?.statusMessage ??
+            {activeSession?.statusReason ??
+              activeSession?.statusMessage ??
               "Create a session from the Sessions panel."}
           </span>
           <div className="terminal-actions">
@@ -728,6 +766,18 @@ function statusFromAgentKind(agentKind: AgentKind): SessionStatus {
   return "running";
 }
 
+function canAgentDetectionSetStatus(status: SessionStatus, agentKind: AgentKind) {
+  if (status === "starting" || status === "unknown") {
+    return true;
+  }
+
+  return status === "shell" && agentKind !== "none";
+}
+
+function isTerminalSessionStatus(status: SessionStatus) {
+  return status === "exited" || status === "closed";
+}
+
 function isLiveSessionStatus(status: SessionStatus) {
-  return status === "starting" || status === "shell" || status === "running" || status === "unknown";
+  return !isTerminalSessionStatus(status);
 }
