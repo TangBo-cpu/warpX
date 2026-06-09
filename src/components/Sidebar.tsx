@@ -27,7 +27,6 @@ export function Sidebar({
   onAgentOverride,
 }: SidebarProps) {
   const [showNewSessionForm, setShowNewSessionForm] = useState(false);
-  const shouldShowForm = sessions.length === 0 || showNewSessionForm;
 
   function createSession(name: string, cwd: string) {
     onCreateSession(name, cwd);
@@ -47,6 +46,7 @@ export function Sidebar({
             aria-label="New session"
             className="sidebar-action"
             disabled={disabled}
+            title="New session"
             type="button"
             onClick={() => setShowNewSessionForm((value) => !value)}
           >
@@ -55,7 +55,7 @@ export function Sidebar({
         </div>
       </div>
 
-      {shouldShowForm ? (
+      {showNewSessionForm ? (
         <NewSessionDialog
           defaultCwd={defaultCwd}
           disabled={disabled}
@@ -66,7 +66,17 @@ export function Sidebar({
 
       <div className="session-list">
         {sessions.length === 0 ? (
-          <p className="empty-sidebar">Create a session to start pwsh.exe.</p>
+          <div className="empty-sidebar">
+            <strong>No sessions</strong>
+            <span>Start a terminal session.</span>
+            <button
+              disabled={disabled}
+              type="button"
+              onClick={() => setShowNewSessionForm(true)}
+            >
+              New session
+            </button>
+          </div>
         ) : (
           sessions.map((session) => (
             <SessionCard

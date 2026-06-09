@@ -10,7 +10,8 @@ import {
 } from "./appearance";
 import { AppMenu } from "./components/AppMenu";
 import { AppearancePanel } from "./components/AppearancePanel";
-import { TerminalView } from "./components/TerminalView";
+import { TerminalView, type TerminalShellApi } from "./components/TerminalView";
+import type { ActiveSessionSummary } from "./sessionDisplay";
 
 type ThemeMode = "light" | "dark";
 
@@ -30,6 +31,8 @@ export default function App() {
   const [appearance, setAppearance] = useState<AppearanceSettings>(getInitialAppearanceSettings);
   const [appearancePanelOpen, setAppearancePanelOpen] = useState(false);
   const [appearanceStatus, setAppearanceStatus] = useState<string | undefined>();
+  const [activeSessionSummary, setActiveSessionSummary] = useState<ActiveSessionSummary | null>(null);
+  const [terminalShellApi, setTerminalShellApi] = useState<TerminalShellApi | null>(null);
   const backgroundImageUrl = appearance.backgroundImagePath
     ? convertFileSrc(appearance.backgroundImagePath)
     : undefined;
@@ -90,11 +93,21 @@ export default function App() {
   return (
     <main className="app-shell" data-theme={theme} style={appearanceStyle}>
       <AppMenu
+        activeSessionSummary={activeSessionSummary}
+        canUseSessionActions={Boolean(activeSessionSummary)}
         theme={theme}
+        workspaceLabel="E:\\Code-All\\wrapx"
+        onClearTerminal={() => terminalShellApi?.clearActiveTerminal()}
+        onCopySelection={() => void terminalShellApi?.copyActiveSelection()}
         onOpenAppearance={() => setAppearancePanelOpen(true)}
+        onPasteClipboard={() => void terminalShellApi?.pasteActiveClipboard()}
         onToggleTheme={toggleTheme}
       />
-      <TerminalView theme={theme} onToggleTheme={toggleTheme} />
+      <TerminalView
+        theme={theme}
+        onReady={setTerminalShellApi}
+        onSessionSummaryChange={setActiveSessionSummary}
+      />
       {appearancePanelOpen ? (
         <AppearancePanel
           settings={appearance}

@@ -10,22 +10,65 @@ type StatusDisplay = {
   message: string;
 };
 
+export type SessionAvatarKey =
+  | "terminal-mage"
+  | "helper-alchemist"
+  | "code-ranger"
+  | "night-archivist";
+
+export type SessionAvatarDisplay = {
+  key: SessionAvatarKey;
+  label: string;
+  glyph: string;
+};
+
+export type ActiveSessionSummary = {
+  name: string;
+  statusLabel: string;
+  cwdLabel: string;
+  age?: string;
+  avatar: SessionAvatarDisplay;
+};
+
 export const AGENT_DISPLAY: Record<AgentKind, AgentDisplay> = {
   none: {
     label: "PowerShell",
-    glyph: ">",
+    glyph: "PS",
   },
   "claude-code": {
     label: "Claude Code",
-    glyph: "🤖",
+    glyph: "CC",
   },
   codex: {
     label: "Codex",
-    glyph: "◇",
+    glyph: "CX",
   },
   unknown: {
     label: "Unknown agent",
-    glyph: "?",
+    glyph: "??",
+  },
+};
+
+export const SESSION_AVATAR_DISPLAY: Record<SessionAvatarKey, SessionAvatarDisplay> = {
+  "terminal-mage": {
+    key: "terminal-mage",
+    label: "terminal-mage",
+    glyph: "TM",
+  },
+  "helper-alchemist": {
+    key: "helper-alchemist",
+    label: "helper-alchemist",
+    glyph: "HA",
+  },
+  "code-ranger": {
+    key: "code-ranger",
+    label: "code-ranger",
+    glyph: "CR",
+  },
+  "night-archivist": {
+    key: "night-archivist",
+    label: "night-archivist",
+    glyph: "NA",
   },
 };
 
@@ -67,6 +110,25 @@ export const STATUS_DISPLAY: Record<SessionStatus, StatusDisplay> = {
     message: "Check the terminal output",
   },
 };
+
+export function getSessionAvatar(session: Session): SessionAvatarDisplay {
+  switch (session.status) {
+    case "running":
+      return SESSION_AVATAR_DISPLAY["helper-alchemist"];
+    case "waiting-input":
+    case "approval-needed":
+      return SESSION_AVATAR_DISPLAY["night-archivist"];
+    case "shell":
+    case "exited":
+    case "closed":
+      return SESSION_AVATAR_DISPLAY["code-ranger"];
+    case "starting":
+    case "unknown":
+    case "error":
+    default:
+      return SESSION_AVATAR_DISPLAY["terminal-mage"];
+  }
+}
 
 export function getSessionStatusMessage(session: Session) {
   return (
