@@ -55,6 +55,13 @@ type TerminalModules = {
 const DEFAULT_CWD = "E:\\Code-All\\wrapx";
 const MAX_LIVE_SESSIONS = 8;
 
+type ThemeMode = "light" | "dark";
+
+type TerminalViewProps = {
+  theme: ThemeMode;
+  onToggleTheme: () => void;
+};
+
 let terminalModulesPromise: Promise<TerminalModules> | null = null;
 
 function loadTerminalModules() {
@@ -64,7 +71,7 @@ function loadTerminalModules() {
   return terminalModulesPromise;
 }
 
-export function TerminalView() {
+export function TerminalView({ theme, onToggleTheme }: TerminalViewProps) {
   const hostsRef = useRef<Record<string, HTMLDivElement | null>>({});
   const terminalRuntimesRef = useRef(new Map<string, TerminalRuntime>());
   const sessionsRef = useRef<Session[]>([]);
@@ -624,19 +631,6 @@ export function TerminalView() {
   return (
     <section className="workspace-card">
       <section className="terminal-card">
-        <div className="terminal-titlebar">
-          <div className="terminal-tab">
-            <span className="terminal-tab-icon" aria-hidden="true">
-              {activeAgent?.glyph ?? "⌁"}
-            </span>
-            <span className="terminal-project">{activeSession?.name ?? "WrapX"}</span>
-            <span className="terminal-branch">main</span>
-          </div>
-          <span className={`terminal-pill is-${activeSession?.status ?? "idle"}`}>
-            {activeStatus?.label ?? "Idle"}
-          </span>
-        </div>
-
         <div className={`terminal-status-widget is-${activeSession?.status ?? "idle"}`}>
           <span className={`terminal-status-glyph is-${activeSession?.agentKind ?? "none"}`} aria-hidden="true">
             {activeAgent?.glyph ?? ">"}
@@ -652,6 +646,9 @@ export function TerminalView() {
           </span>
           {activeAge ? <span className="terminal-status-age">{activeAge}</span> : null}
           <div className="terminal-actions">
+            <button type="button" className="theme-toggle" onClick={onToggleTheme}>
+              {theme === "light" ? "Dark" : "Light"}
+            </button>
             <button disabled={!activeSession} type="button" onClick={clearActiveTerminal}>
               Clear
             </button>
