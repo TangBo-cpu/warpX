@@ -1,4 +1,11 @@
 import type { AgentKind, Session } from "../types/session";
+import {
+  AGENT_DISPLAY,
+  STATUS_DISPLAY,
+  formatSessionActivityAge,
+  getSessionCwdLabel,
+  getSessionStatusMessage,
+} from "../sessionDisplay";
 
 type SessionCardProps = {
   session: Session;
@@ -8,32 +15,6 @@ type SessionCardProps = {
   onAgentOverride: (override?: AgentKind) => void;
 };
 
-const AGENT_LABELS: Record<AgentKind, string> = {
-  none: "PowerShell",
-  "claude-code": "Claude Code",
-  codex: "Codex",
-  unknown: "Unknown agent",
-};
-
-function formatStatusReason(session: Session) {
-  if (!session.statusReason) {
-    return undefined;
-  }
-
-  if (!session.statusReasonAt) {
-    return session.statusReason;
-  }
-
-  const detectedAt = Date.parse(session.statusReasonAt);
-  if (Number.isNaN(detectedAt)) {
-    return session.statusReason;
-  }
-
-  const ageSeconds = Math.max(0, Math.floor((Date.now() - detectedAt) / 1000));
-  const age = ageSeconds < 60 ? `${ageSeconds}s ago` : `${Math.floor(ageSeconds / 60)}m ago`;
-  return `${session.statusReason} · ${age}`;
-}
-
 export function SessionCard({
   session,
   active,
@@ -41,11 +22,16 @@ export function SessionCard({
   onClose,
   onAgentOverride,
 }: SessionCardProps) {
-  const statusReason = formatStatusReason(session);
+  const agent = AGENT_DISPLAY[session.agentKind];
+  const autoAgent = AGENT_DISPLAY[session.autoAgentKind];
+  const status = STATUS_DISPLAY[session.status];
+  const age = formatSessionActivityAge(session);
+  const cwdLabel = getSessionCwdLabel(session.cwd);
+  const message = getSessionStatusMessage(session);
 
   return (
     <article
-      className={`session-card${active ? " is-active" : ""}`}
+      className={`session-card is-${session.status}${active ? " is-active" : ""}`}
       role="button"
       tabIndex={0}
       onClick={onSelect}
@@ -57,30 +43,26 @@ export function SessionCard({
       }}
     >
       <span className="session-card-main">
-        <span className="session-card-header">
-          <span className="session-name">{session.name}</span>
-          <span className={`agent-badge is-${session.agentKind}`}>
-            {AGENT_LABELS[session.agentKind]}
+        <span className="session-card-topline">
+          <span className={`session-agent-glyph is-${session.agentKind}`} aria-hidden="true">
+            {agent.glyph}
           </span>
+          <span className="session-name">{session.name}</span>
+          <span className={`session-status is-${session.status}`}>{status.label}</span>
+          {age ? <span className="session-age">{age}</span> : null}
         </span>
-        <span className="session-card-status-row">
-          <span className={`session-status is-${session.status}`}>{session.status}</span>
+
+        <span className="session-card-meta">
+          <span>{agent.label}</span>
+          <span aria-hidden="true">·</span>
+          <span title={session.cwd}>{cwdLabel}</span>
           {session.agentKindOverride ? <span className="override-badge">override</span> : null}
         </span>
-        <span className="session-cwd" title={session.cwd}>
-          {session.cwd}
+
+        <span className="session-message" title={message}>
+          {message}
         </span>
-        {statusReason ? (
-          <span className="session-message" title={session.statusReason}>
-            {statusReason}
-          </span>
-        ) : session.agentReason ? (
-          <span className="session-message" title={session.agentReason}>
-            {session.agentReason}
-          </span>
-        ) : session.statusMessage ? (
-          <span className="session-message">{session.statusMessage}</span>
-        ) : null}
+
         <label
           className="agent-override"
           onClick={(event) => event.stopPropagation()}
@@ -94,7 +76,7 @@ export function SessionCard({
               onAgentOverride(value === "auto" ? undefined : value);
             }}
           >
-            <option value="auto">Auto ({AGENT_LABELS[session.autoAgentKind]})</option>
+            <option value="auto">Auto ({autoAgent.label})</option>
             <option value="claude-code">Claude Code</option>
             <option value="codex">Codex</option>
             <option value="unknown">Unknown</option>

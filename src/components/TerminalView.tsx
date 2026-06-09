@@ -5,6 +5,13 @@ import type { FitAddon } from "@xterm/addon-fit";
 import type { Terminal } from "@xterm/xterm";
 import { useEffect, useRef, useState } from "react";
 import { Sidebar } from "./Sidebar";
+import {
+  AGENT_DISPLAY,
+  STATUS_DISPLAY,
+  formatSessionActivityAge,
+  getSessionCwdLabel,
+  getSessionStatusMessage,
+} from "../sessionDisplay";
 import type { AgentKind, Session, SessionStatus } from "../types/session";
 
 type PtyOutput = {
@@ -606,31 +613,44 @@ export function TerminalView() {
     }
   }
 
+  const activeAgent = activeSession ? AGENT_DISPLAY[activeSession.agentKind] : null;
+  const activeStatus = activeSession ? STATUS_DISPLAY[activeSession.status] : null;
+  const activeAge = activeSession ? formatSessionActivityAge(activeSession) : undefined;
+  const activeCwd = activeSession ? getSessionCwdLabel(activeSession.cwd) : "No session";
+  const activeMessage = activeSession
+    ? getSessionStatusMessage(activeSession)
+    : "Create a session from the Sessions panel.";
+
   return (
     <section className="workspace-card">
       <section className="terminal-card">
         <div className="terminal-titlebar">
-          <div className="window-controls" aria-hidden="true">
-            <span className="window-dot is-red" />
-            <span className="window-dot is-yellow" />
-            <span className="window-dot is-green" />
-          </div>
-          <div className="terminal-title-main">
-            <span className="terminal-project">WrapX</span>
+          <div className="terminal-tab">
+            <span className="terminal-tab-icon" aria-hidden="true">
+              {activeAgent?.glyph ?? "⌁"}
+            </span>
+            <span className="terminal-project">{activeSession?.name ?? "WrapX"}</span>
             <span className="terminal-branch">main</span>
           </div>
           <span className={`terminal-pill is-${activeSession?.status ?? "idle"}`}>
-            {activeSession ? activeSession.status : "idle"}
+            {activeStatus?.label ?? "Idle"}
           </span>
         </div>
 
-        <div className="terminal-subbar">
-          <span>{activeSession?.name ?? "No active session"}</span>
-          <span>
-            {activeSession?.statusReason ??
-              activeSession?.statusMessage ??
-              "Create a session from the Sessions panel."}
+        <div className={`terminal-status-widget is-${activeSession?.status ?? "idle"}`}>
+          <span className={`terminal-status-glyph is-${activeSession?.agentKind ?? "none"}`} aria-hidden="true">
+            {activeAgent?.glyph ?? ">"}
           </span>
+          <span className="terminal-status-copy">
+            <span className="terminal-status-line">
+              <strong>{activeSession?.name ?? "No active session"}</strong>
+              <span>{activeCwd}</span>
+              <span>{activeAgent?.label ?? "PowerShell"}</span>
+              <span>{activeStatus?.label ?? "Idle"}</span>
+            </span>
+            <span className="terminal-status-message">{activeMessage}</span>
+          </span>
+          {activeAge ? <span className="terminal-status-age">{activeAge}</span> : null}
           <div className="terminal-actions">
             <button disabled={!activeSession} type="button" onClick={clearActiveTerminal}>
               Clear

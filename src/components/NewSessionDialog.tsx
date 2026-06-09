@@ -47,7 +47,7 @@ export function NewSessionDialog({
         />
       </label>
       <button disabled={disabled} type="submit">
-        ＋ New Session
+        New Session
       </button>
     </form>
   );
