@@ -19,6 +19,7 @@ fn main() {
             commands::pty_close,
             commands::pty_close_all,
             commands::terminal_profile_appearance,
+            commands::appearance_import_background_image,
             commands::app_exit,
         ])
         .run(tauri::generate_context!())

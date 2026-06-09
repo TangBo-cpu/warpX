@@ -593,3 +593,306 @@ AppShell
 ```
 
 这套布局先支撑多 session 切换和状态观察，再把 Claude Code / Codex 检测结果和 status detector 结果填入共享的 status widgets。
+
+## 14. App-wide Background & Appearance System
+
+状态：MVP 定稿，后续扩展以本文 TODO 为准。
+
+这次外观创新允许放松前文对当前 UI 视觉约束的限制，但仍保留以下产品底线：
+
+- 主终端可读性优先。
+- Windows-first，不复刻 macOS traffic lights。
+- 顶部菜单负责打开外观设置入口。
+- 背景、渐变、遮罩、透明 surface 和状态卡片应形成一个统一视觉空间。
+- 自定义 CSS 暂不作为 MVP 入口，避免破坏窗口交互和 terminal 可读性。
+
+### 14.1 产品目标
+
+该功能不是简单“换皮肤”，而是一个 **全应用背景环境系统**：
+
+```text
+底层：全局背景色 / 渐变
+中层：用户背景图片，支持独立不透明度
+上层：全局 overlay / vignette / acrylic blur
+表层：titlebar、terminal pane、sidebar、cards 共用 surface tokens
+保护：terminal 可读性由 preset token 保证，不暴露 terminal opacity
+```
+
+目标是解决窗口顶部、terminal、右侧 sidebar、session cards 和背景之间割裂的问题，让 WrapX 看起来像一个统一的 glass / acrylic workspace。
+
+### 14.2 折中 MVP 交互
+
+采用 Windows Terminal 设置页的 row-card 思路，但不在第一版引入完整 profile 设置页。
+
+入口：
+
+```text
+顶部菜单 / dropdown
+├─ New Session
+├─ Appearance...
+├─ Settings
+└─ About
+```
+
+点击 `Appearance...` 后打开一个右侧抽屉或 modal panel。面板采用 Windows Terminal 风格的设置行：标题、说明、控件、单项重置入口。
+
+建议布局：
+
+```text
+Appearance
+
+Preview
+┌────────────────────────────────────┐
+│ titlebar / terminal / sidebar demo │
+└────────────────────────────────────┘
+
+配色方案
+[ Ivory Glass        v ]     ↶
+应用整体背景、surface 和状态卡片色彩。
+
+背景图像
+背景图像路径
+[ Choose Image... ] [ Clear ]          ↶
+选择整个 WrapX 共享的背景图片。
+
+背景图像拉伸模式
+[ 均匀填充 v ]                         ↶
+控制图片如何填满窗口。
+
+背景图像对齐
+[ 居中 v ]                             ↶
+控制图片与窗口边界的对齐方式。
+
+背景图像不透明度
+0% ─────────●──── 100%                 ↶
+控制图片露出程度。
+
+透明度
+视觉强度
+Subtle ───────●──── Strong             ↶
+控制玻璃感、遮罩、模糊和 surface 融合程度。
+
+启用亚克力材料
+[ 开 ]                                  ↶
+使用半透明 / 模糊材质。
+
+[ Reset Appearance ]
+```
+
+MVP 设置项：
+
+| 分组 | 设置项 | MVP 行为 |
+|---|---|---|
+| 配色方案 | 4 个 preset | `Ivory Glass`、`Midnight Glass`、`Acrylic Terminal`、`Terminal Focus` |
+| 背景图像 | 文件选择 | 支持本地 `.png` / `.jpg` / `.jpeg` / `.webp`；选择后复制到 app data |
+| 背景图像 | Clear | 只清除背景图片，不改变 preset |
+| 背景图像 | 拉伸模式 | `cover` / `contain` / `stretch` / `tile` |
+| 背景图像 | 对齐方式 | `center`、四边、四角 |
+| 背景图像 | 图片不透明度 | `0 - 1`，控制背景图片层，不控制 terminal |
+| 透明度 | 视觉强度 | `0 - 1`，映射 overlay、blur、surface 透明感和边框高光 |
+| 透明度 | 启用亚克力材料 | 控制 blur / backdrop-filter 类效果 |
+| 恢复 | Reset Appearance | 恢复默认 preset 和默认数值，保证用户可回到可读状态 |
+
+### 14.3 MVP 配置模型
+
+MVP 只保存用户真实选择，不保存展开后的全部 CSS token。preset 和 intensity 负责推导 token。
+
+```ts
+type AppearancePreset =
+  | "ivory-glass"
+  | "midnight-glass"
+  | "acrylic-terminal"
+  | "terminal-focus";
+
+type BackgroundImageFit =
+  | "cover"
+  | "contain"
+  | "stretch"
+  | "tile";
+
+type BackgroundImageAlignment =
+  | "center"
+  | "top"
+  | "bottom"
+  | "left"
+  | "right"
+  | "top-left"
+  | "top-right"
+  | "bottom-left"
+  | "bottom-right";
+
+type AppearanceSettings = {
+  preset: AppearancePreset;
+  intensity: number; // 0 - 1
+  backgroundImagePath?: string;
+  backgroundImageFit: BackgroundImageFit;
+  backgroundImageAlignment: BackgroundImageAlignment;
+  backgroundImageOpacity: number; // 0 - 1
+  acrylicEnabled: boolean;
+};
+```
+
+默认值建议：
+
+```ts
+{
+  preset: "ivory-glass",
+  intensity: 0.45,
+  backgroundImageFit: "cover",
+  backgroundImageAlignment: "center",
+  backgroundImageOpacity: 0.35,
+  acrylicEnabled: true
+}
+```
+
+### 14.4 Preset 语义
+
+| Preset | 用途 | 视觉方向 |
+|---|---|---|
+| `Ivory Glass` | 默认浅色创新方向 | 暖色渐变、ivory overlay、半透明 sidebar/card、深色 terminal surface |
+| `Midnight Glass` | 夜间工作舱 | 深蓝黑 / 紫黑渐变、暗色 glass surface、terminal 接近纯黑 |
+| `Acrylic Terminal` | 最强调背景图片 | 用户图片更明显、blur 更强、sidebar/card 更玻璃化 |
+| `Terminal Focus` | 长时间工作 | 图片弱化、overlay 更强、terminal 可读性最稳 |
+
+Preset 切换规则：
+
+- 切换 preset 时保留当前背景图片和背景图片不透明度。
+- `Clear Image` 只清除图片，不改变 preset。
+- `Reset Appearance` 恢复默认 preset、默认 opacity、默认 fit/alignment，并清除或恢复默认图片。
+- terminal opacity 不作为用户设置暴露；terminal surface 由 preset token 保证可读性。
+
+### 14.5 背景图片实现原则
+
+背景图片应是独立层，而不是直接混进不可控的 `background` shorthand，这样才能稳定控制图片不透明度。
+
+建议层级：
+
+```css
+.app-shell {
+  position: relative;
+  background:
+    var(--appearance-vignette),
+    var(--appearance-gradient),
+    var(--appearance-base-color);
+}
+
+.app-shell::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background-image: var(--appearance-image);
+  background-size: var(--appearance-image-size);
+  background-position: var(--appearance-image-position);
+  background-repeat: var(--appearance-image-repeat);
+  opacity: var(--appearance-image-opacity);
+  pointer-events: none;
+}
+
+.app-shell > * {
+  position: relative;
+  z-index: 1;
+}
+```
+
+图片文件处理：
+
+- 用户选择本地图片后复制到 app data，例如 `%APPDATA%/WrapX/backgrounds/`。
+- 配置保存 app-managed path，不长期引用微信、下载目录或临时目录。
+- 图片丢失时回退到当前 preset 的渐变背景。
+- 背景图片失败不能阻止应用启动。
+
+### 14.6 Surface token 原则
+
+组件不应直接硬编码背景色，而应消费统一 token：
+
+```css
+:root {
+  --appearance-base-color: #f7efe1;
+  --appearance-image: none;
+  --appearance-image-opacity: 0.35;
+  --appearance-gradient: linear-gradient(135deg, rgba(255, 233, 196, 0.42), rgba(155, 190, 255, 0.28));
+  --appearance-vignette: radial-gradient(circle at center, transparent 45%, rgba(68, 46, 24, 0.18) 100%);
+  --appearance-blur: 16px;
+
+  --surface-titlebar: rgba(255, 250, 241, 0.62);
+  --surface-main: rgba(255, 248, 235, 0.58);
+  --surface-sidebar: rgba(255, 245, 226, 0.64);
+  --surface-card: rgba(255, 251, 244, 0.76);
+  --surface-card-active: rgba(255, 239, 205, 0.84);
+  --surface-terminal: rgba(2, 6, 12, 0.88);
+}
+```
+
+应用规则：
+
+- titlebar / terminal header / sidebar / cards 使用 surface token。
+- 大区域可以使用 acrylic blur；session card 默认优先使用半透明 surface 和 shadow，避免每个小卡片都强 blur。
+- terminal surface 保持深色和高对比，背景图片只能作为弱氛围透出。
+- 用户调节的是背景图片不透明度，不是 terminal 透明度。
+
+### 14.7 MVP 验证清单
+
+实现完成前至少验证：
+
+- 顶部菜单可以打开 / 关闭 Appearance 面板。
+- 4 个 preset 可切换，并明显改变整体氛围。
+- 选择背景图片后立即生效。
+- 重启应用后背景图片和设置仍生效。
+- `Clear Image` 只清除图片，不重置 preset。
+- fit / alignment / image opacity 生效。
+- image opacity `0` 时图片完全隐藏但渐变还在。
+- image opacity `1` 时图片完整参与背景但内容仍可读。
+- intensity slider 对 glass / overlay / surface 融合有明显影响。
+- acrylic toggle 关闭后 blur 类效果消失，布局不变。
+- Reset Appearance 能恢复默认可读状态。
+- 图片路径失效时应用不崩溃，并回退到 preset 渐变。
+
+### 14.8 后续 TODO：完整 Appearance / Terminal 设置
+
+折中 MVP 后，完整设置可以逐步吸收 Windows Terminal 的更多能力，但必须分组推进，避免一次性塞满。
+
+TODO：Appearance 完整化
+
+- [ ] 单项 reset 按钮覆盖所有 Appearance row。
+- [ ] Appearance preview 做真实 titlebar / terminal / sidebar / session card 缩略预览。
+- [ ] 支持导入 / 导出 appearance preset JSON。
+- [ ] 支持用户自定义 gradient stops。
+- [ ] 支持用户自定义 surface opacity token。
+- [ ] 支持用户自定义 accent color 和 status color token。
+- [ ] 支持 light / dark / system 基础模式与 appearance preset 的关系定义。
+- [ ] 支持安全模式启动时跳过自定义外观。
+
+TODO：Terminal 文本设置
+
+- [ ] 配色方案 / terminal color scheme 选择。
+- [ ] 字体 family。
+- [ ] 是否显示所有字体。
+- [ ] 字号。
+- [ ] 行高。
+- [ ] 单元格宽度。
+- [ ] 字重。
+- [ ] 可变字体轴。
+- [ ] 字体功能。
+
+TODO：Cursor 设置
+
+- [ ] 光标形状。
+- [ ] 光标高度。
+- [ ] 光标颜色。
+- [ ] 光标 blink 行为。
+
+TODO：高级自定义
+
+- [ ] CSS variable override 文件。
+- [ ] 高级 custom CSS 文件，默认关闭并标记实验性。
+- [ ] custom CSS 一键禁用。
+- [ ] custom CSS 出错 / 不可读时 fail closed 到默认外观。
+- [ ] 主题包目录和本地主题管理。
+
+TODO：非 MVP 明确暂缓
+
+- [ ] 动态壁纸。
+- [ ] 在线主题市场。
+- [ ] 云同步背景图。
+- [ ] 多窗口不同背景。
+- [ ] 真系统级透明窗口。

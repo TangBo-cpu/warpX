@@ -2,10 +2,12 @@ use crate::pty_manager::PtyState;
 use crate::status_detector::StatusDetectorState;
 use crate::terminal_appearance::{load_windows_terminal_appearance, TerminalProfileAppearance};
 use serde::{Deserialize, Serialize};
+use std::env;
+use std::fs;
 use std::io::Read;
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 use std::thread;
-use std::time::Duration;
+use std::time::{Duration, SystemTime, UNIX_EPOCH};
 use tauri::{AppHandle, Emitter, Manager, State};
 
 #[derive(Debug, Deserialize)]
@@ -35,6 +37,12 @@ pub struct PtyOutput {
 #[serde(rename_all = "camelCase")]
 pub struct PtyLifecycleEvent {
     session_id: String,
+}
+
+#[derive(Debug, Serialize, Clone)]
+#[serde(rename_all = "camelCase")]
+pub struct ImportedBackgroundImage {
+    path: String,
 }
 
 #[tauri::command]
@@ -109,12 +117,56 @@ pub fn terminal_profile_appearance() -> Option<TerminalProfileAppearance> {
 }
 
 #[tauri::command]
+pub fn appearance_import_background_image(
+    file_name: String,
+    bytes: Vec<u8>,
+) -> Result<ImportedBackgroundImage, String> {
+    let extension = image_extension(&file_name)?;
+    let backgrounds_dir = appearance_backgrounds_dir()?;
+    fs::create_dir_all(&backgrounds_dir)
+        .map_err(|error| format!("failed to create backgrounds directory: {error}"))?;
+
+    let timestamp = SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .map_err(|error| format!("system clock error: {error}"))?
+        .as_millis();
+    let path = backgrounds_dir.join(format!("background-{timestamp}.{extension}"));
+    fs::write(&path, bytes).map_err(|error| format!("failed to save background image: {error}"))?;
+
+    Ok(ImportedBackgroundImage {
+        path: path.to_string_lossy().to_string(),
+    })
+}
+
+#[tauri::command]
 pub fn app_exit(app: AppHandle, state: State<'_, PtyState>) -> Result<(), String> {
     for session_id in state.close_all()? {
         app.state::<StatusDetectorState>().forget(&session_id);
     }
     app.exit(0);
     Ok(())
+}
+
+fn appearance_backgrounds_dir() -> Result<PathBuf, String> {
+    env::var_os("APPDATA")
+        .map(PathBuf::from)
+        .map(|app_data| app_data.join("WrapX").join("backgrounds"))
+        .ok_or_else(|| "APPDATA is unavailable".to_string())
+}
+
+fn image_extension(file_name: &str) -> Result<&'static str, String> {
+    let extension = Path::new(file_name)
+        .extension()
+        .and_then(|extension| extension.to_str())
+        .map(str::to_ascii_lowercase)
+        .ok_or_else(|| "background image must have an extension".to_string())?;
+
+    match extension.as_str() {
+        "png" => Ok("png"),
+        "jpg" | "jpeg" => Ok("jpg"),
+        "webp" => Ok("webp"),
+        _ => Err("supported background formats: png, jpg, jpeg, webp".to_string()),
+    }
 }
 
 fn spawn_output_reader(app: AppHandle, session_id: String, mut reader: Box<dyn Read + Send>) {
