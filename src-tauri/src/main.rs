@@ -2,6 +2,7 @@ mod commands;
 mod process_inspector;
 mod pty_manager;
 mod status_detector;
+mod terminal_appearance;
 
 fn main() {
     tauri::Builder::default()
@@ -17,6 +18,7 @@ fn main() {
             commands::pty_resize,
             commands::pty_close,
             commands::pty_close_all,
+            commands::terminal_profile_appearance,
             commands::app_exit,
         ])
         .run(tauri::generate_context!())

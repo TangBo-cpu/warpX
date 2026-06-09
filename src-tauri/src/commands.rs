@@ -1,5 +1,6 @@
 use crate::pty_manager::PtyState;
 use crate::status_detector::StatusDetectorState;
+use crate::terminal_appearance::{load_windows_terminal_appearance, TerminalProfileAppearance};
 use serde::{Deserialize, Serialize};
 use std::io::Read;
 use std::path::PathBuf;
@@ -100,6 +101,11 @@ pub fn pty_close_all(app: AppHandle, state: State<'_, PtyState>) -> Result<Vec<S
         );
     }
     Ok(session_ids)
+}
+
+#[tauri::command]
+pub fn terminal_profile_appearance() -> Option<TerminalProfileAppearance> {
+    load_windows_terminal_appearance()
 }
 
 #[tauri::command]

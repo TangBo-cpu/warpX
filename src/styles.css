@@ -453,6 +453,29 @@ body {
   padding: 2px 4px;
 }
 
+.terminal-host .xterm-viewport {
+  background-color: transparent !important;
+  scrollbar-color: rgba(192, 202, 245, 0.7) transparent;
+  scrollbar-width: thin;
+}
+
+.terminal-host .xterm-viewport::-webkit-scrollbar {
+  width: 9px;
+}
+
+.terminal-host .xterm-viewport::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.terminal-host .xterm-viewport::-webkit-scrollbar-thumb {
+  border-radius: 999px;
+  background: rgba(192, 202, 245, 0.42);
+}
+
+.terminal-host .xterm-viewport::-webkit-scrollbar-thumb:hover {
+  background: rgba(192, 202, 245, 0.68);
+}
+
 .empty-terminal {
   display: grid;
   height: 100%;

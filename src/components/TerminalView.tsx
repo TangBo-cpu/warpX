@@ -52,10 +52,72 @@ type TerminalModules = {
   FitAddon: typeof import("@xterm/addon-fit").FitAddon;
 };
 
+type TerminalOptions = NonNullable<ConstructorParameters<TerminalModules["Terminal"]>[0]>;
+type TerminalFontWeight = TerminalOptions["fontWeight"];
+
 const DEFAULT_CWD = "E:\\Code-All\\wrapx";
 const MAX_LIVE_SESSIONS = 8;
+const DEFAULT_TERMINAL_FONT_FAMILY = "Cascadia Mono";
+const TERMINAL_FONT_FALLBACKS = [
+  "JetBrainsMono NFM",
+  "JetBrainsMono NF",
+  "JetBrainsMono Nerd Font Mono",
+  "JetBrainsMono Nerd Font",
+  "CaskaydiaCove Nerd Font Mono",
+  "CaskaydiaCove Nerd Font",
+  "Cascadia Code PL",
+  "Cascadia Mono PL",
+  "MesloLGM Nerd Font Mono",
+  "MesloLGM Nerd Font",
+  "MesloLGS Nerd Font Mono",
+  "MesloLGS Nerd Font",
+  "Consolas",
+  "Courier New",
+  "Segoe UI Symbol",
+  "Segoe UI Emoji",
+  "monospace",
+];
+const DEFAULT_TERMINAL_FONT_SIZE = 14;
+const MIN_TERMINAL_FONT_SIZE = 6;
+const MAX_TERMINAL_FONT_SIZE = 72;
+const DEFAULT_TERMINAL_LINE_HEIGHT = 1;
+const MIN_TERMINAL_LINE_HEIGHT = 0.8;
+const MAX_TERMINAL_LINE_HEIGHT = 2;
 
 type ThemeMode = "light" | "dark";
+
+type TerminalColorTheme = {
+  background?: string;
+  foreground?: string;
+  cursor?: string;
+  selectionBackground?: string;
+  black?: string;
+  red?: string;
+  green?: string;
+  yellow?: string;
+  blue?: string;
+  magenta?: string;
+  cyan?: string;
+  white?: string;
+  brightBlack?: string;
+  brightRed?: string;
+  brightGreen?: string;
+  brightYellow?: string;
+  brightBlue?: string;
+  brightMagenta?: string;
+  brightCyan?: string;
+  brightWhite?: string;
+};
+
+type TerminalProfileAppearance = {
+  profileName?: string;
+  colorScheme?: string;
+  fontFamily?: string;
+  fontSize?: number;
+  fontWeight?: string;
+  lineHeight?: number;
+  theme: TerminalColorTheme;
+};
 
 type TerminalViewProps = {
   theme: ThemeMode;
@@ -71,21 +133,63 @@ function loadTerminalModules() {
   return terminalModulesPromise;
 }
 
+function getTauriWindow(): ReturnType<typeof getCurrentWindow> | null {
+  try {
+    return getCurrentWindow();
+  } catch {
+    return null;
+  }
+}
+
 export function TerminalView({ theme, onToggleTheme }: TerminalViewProps) {
   const hostsRef = useRef<Record<string, HTMLDivElement | null>>({});
   const terminalRuntimesRef = useRef(new Map<string, TerminalRuntime>());
   const sessionsRef = useRef<Session[]>([]);
   const activeSessionIdRef = useRef<string | null>(null);
+  const terminalAppearanceRef = useRef<TerminalProfileAppearance | null>(null);
   const appCloseInProgressRef = useRef(false);
   const closedSessionIdsRef = useRef(new Set<string>());
   const sessionCounterRef = useRef(1);
   const [sessions, setSessions] = useState<Session[]>([]);
   const [activeSessionId, setActiveSessionId] = useState<string | null>(null);
+  const [terminalAppearance, setTerminalAppearance] = useState<TerminalProfileAppearance | null>(null);
   const activeSession = sessions.find((session) => session.id === activeSessionId) ?? null;
 
   useEffect(() => {
     sessionsRef.current = sessions;
   }, [sessions]);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    void invoke<TerminalProfileAppearance | null>("terminal_profile_appearance")
+      .then((appearance) => {
+        if (!cancelled && appearance) {
+          terminalAppearanceRef.current = appearance;
+          setTerminalAppearance(appearance);
+        }
+      })
+      .catch(() => undefined);
+
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  useEffect(() => {
+    if (!terminalAppearance) {
+      return;
+    }
+
+    terminalRuntimesRef.current.forEach(({ terminal }) => {
+      applyTerminalAppearance(terminal, terminalAppearance);
+    });
+
+    const sessionId = activeSessionIdRef.current;
+    if (sessionId) {
+      requestAnimationFrame(() => fitAndResize(sessionId));
+    }
+  }, [terminalAppearance]);
 
   useEffect(() => {
     activeSessionIdRef.current = activeSessionId;
@@ -109,15 +213,15 @@ export function TerminalView({ theme, onToggleTheme }: TerminalViewProps) {
   useEffect(() => {
     let cancelled = false;
     const unlisteners: UnlistenFn[] = [];
-    const appWindow = getCurrentWindow();
+    const appWindow = getTauriWindow();
 
     void Promise.all([
-      appWindow.setClosable(true),
-      appWindow.setMinimizable(true),
-      appWindow.setMaximizable(true),
+      appWindow?.setClosable(true),
+      appWindow?.setMinimizable(true),
+      appWindow?.setMaximizable(true),
     ]).catch(() => undefined);
 
-    void appWindow.onCloseRequested((event) => {
+    void appWindow?.onCloseRequested((event) => {
       event.preventDefault();
       if (appCloseInProgressRef.current) {
         return;
@@ -288,7 +392,7 @@ export function TerminalView({ theme, onToggleTheme }: TerminalViewProps) {
             return;
           }
 
-          const terminal = createTerminal(Terminal, sessionId, name, () => canWriteToSession(sessionId));
+          const terminal = createTerminal(Terminal, sessionId, name, terminalAppearanceRef.current, () => canWriteToSession(sessionId));
           const fitAddon = new FitAddon();
           terminal.loadAddon(fitAddon);
           attachTerminalKeys(terminal, sessionId, {
@@ -736,19 +840,19 @@ function createTerminal(
   TerminalConstructor: TerminalModules["Terminal"],
   sessionId: string,
   name: string,
+  appearance: TerminalProfileAppearance | null,
   canWrite: () => boolean,
 ) {
   let warnedReadonly = false;
   const terminal = new TerminalConstructor({
     cursorBlink: true,
     convertEol: true,
-    fontFamily: 'Cascadia Mono, Consolas, "Courier New", monospace',
-    fontSize: 14,
+    fontFamily: formatTerminalFontFamily(appearance?.fontFamily),
+    fontSize: terminalFontSize(appearance?.fontSize),
+    fontWeight: terminalFontWeight(appearance?.fontWeight),
+    lineHeight: terminalLineHeight(appearance?.lineHeight),
     scrollback: 10_000,
-    theme: {
-      background: "#05070a",
-      foreground: "#f6f7fb",
-    },
+    theme: terminalTheme(appearance),
   });
 
   terminal.writeln(`WrapX M2 Session: ${name}`);
@@ -769,6 +873,89 @@ function createTerminal(
   });
 
   return terminal;
+}
+
+function applyTerminalAppearance(terminal: Terminal, appearance: TerminalProfileAppearance) {
+  terminal.options.theme = terminalTheme(appearance);
+  terminal.options.fontFamily = formatTerminalFontFamily(appearance.fontFamily);
+  terminal.options.fontSize = terminalFontSize(appearance.fontSize);
+  terminal.options.fontWeight = terminalFontWeight(appearance.fontWeight);
+  terminal.options.lineHeight = terminalLineHeight(appearance.lineHeight);
+}
+
+function terminalTheme(appearance: TerminalProfileAppearance | null): TerminalColorTheme {
+  const theme = appearance?.theme ?? {};
+
+  return {
+    ...theme,
+    background: theme.background ?? "#05070a",
+    foreground: theme.foreground ?? "#f6f7fb",
+  };
+}
+
+function terminalFontSize(fontSize?: number) {
+  return typeof fontSize === "number" &&
+    Number.isFinite(fontSize) &&
+    fontSize >= MIN_TERMINAL_FONT_SIZE &&
+    fontSize <= MAX_TERMINAL_FONT_SIZE
+    ? fontSize
+    : DEFAULT_TERMINAL_FONT_SIZE;
+}
+
+function terminalLineHeight(lineHeight?: number) {
+  return typeof lineHeight === "number" &&
+    Number.isFinite(lineHeight) &&
+    lineHeight >= MIN_TERMINAL_LINE_HEIGHT &&
+    lineHeight <= MAX_TERMINAL_LINE_HEIGHT
+    ? lineHeight
+    : DEFAULT_TERMINAL_LINE_HEIGHT;
+}
+
+function terminalFontWeight(fontWeight?: string): TerminalFontWeight {
+  if (!fontWeight) {
+    return undefined;
+  }
+
+  const normalizedFontWeight = fontWeight.trim().toLowerCase();
+  if (normalizedFontWeight === "normal" || normalizedFontWeight === "bold") {
+    return normalizedFontWeight;
+  }
+
+  const numericFontWeight = Number(normalizedFontWeight);
+  if (Number.isInteger(numericFontWeight) && numericFontWeight >= 100 && numericFontWeight <= 900) {
+    return numericFontWeight as TerminalFontWeight;
+  }
+
+  return undefined;
+}
+
+function formatTerminalFontFamily(fontFamily?: string) {
+  const preferredFont = fontFamily?.trim() || DEFAULT_TERMINAL_FONT_FAMILY;
+  const fontFamilies = preferredFont.includes(",")
+    ? preferredFont.split(",").map((font) => font.trim()).filter(Boolean)
+    : [preferredFont];
+  return uniqueFontFamilies([...fontFamilies, ...TERMINAL_FONT_FALLBACKS]).map(quoteFontFamily).join(", ");
+}
+
+function uniqueFontFamilies(fontFamilies: string[]) {
+  const seen = new Set<string>();
+  return fontFamilies.filter((fontFamily) => {
+    const normalized = fontFamily.replace(/^['\"]|['\"]$/g, "").toLowerCase();
+    if (seen.has(normalized)) {
+      return false;
+    }
+
+    seen.add(normalized);
+    return true;
+  });
+}
+
+function quoteFontFamily(fontFamily: string) {
+  if (!fontFamily.includes(" ") || (fontFamily.startsWith('"') && fontFamily.endsWith('"'))) {
+    return fontFamily;
+  }
+
+  return `"${fontFamily.replace(/"/g, '\\"')}"`;
 }
 
 function statusFromAgentKind(agentKind: AgentKind): SessionStatus {
