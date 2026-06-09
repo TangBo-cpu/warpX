@@ -156,7 +156,7 @@ M5: Windows alpha release
 | [`IMPLEMENTATION_CHECKLIST.md`](./IMPLEMENTATION_CHECKLIST.md) | M0-M5 实现清单、模块、测试、验收标准 |
 | [`PROJECT_READINESS.md`](./PROJECT_READINESS.md) | 工程准备、风险、缺口、下一步建议 |
 | [`M0_PTY_SPIKE.md`](./M0_PTY_SPIKE.md) | M0 PTY 技术地基验证计划 |
-| [`UI_DESIGN.md`](./UI_DESIGN.md) | 参考 UI 的整体布局方向 |
+| [`design.md`](./design.md) | UI 设计唯一入口：布局、视觉方向、Session Card 和状态提示交互 |
 
 后续建议补充：
 

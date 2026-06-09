@@ -167,52 +167,11 @@ rolling buffer 匹配窄规则
 用户点击卡片回到终端处理
 ```
 
-## 7. UI 草图
+## 7. UI 设计入口
 
-```text
-┌──────────────────────────────────────────────────────────────┐
-│ WrapX                                                        │
-├──────────────────────┬───────────────────────────────────────┤
-│ Sessions             │ Active Terminal                       │
-│                      │                                       │
-│ [+ New Session]      │ PS E:\Code-All\wrapx> claude          │
-│                      │                                       │
-│ ┌──────────────────┐ │ ... live xterm.js terminal ...         │
-│ │ Claude Code      │ │                                       │
-│ │ approval-needed  │ │                                       │
-│ │ branch: main     │ │                                       │
-│ │ Allow command?   │ │                                       │
-│ └──────────────────┘ │                                       │
-│ ┌──────────────────┐ │                                       │
-│ │ Codex            │ │                                       │
-│ │ running          │ │                                       │
-│ │ branch: main     │ │                                       │
-│ │ Running tests... │ │                                       │
-│ └──────────────────┘ │                                       │
-│ ┌──────────────────┐ │                                       │
-│ │ PowerShell       │ │                                       │
-│ │ shell            │ │                                       │
-│ │ branch: main     │ │                                       │
-│ │ PS>              │ │                                       │
-│ └──────────────────┘ │                                       │
-└──────────────────────┴───────────────────────────────────────┘
-```
+UI 布局、Session Card 展示字段、状态提示交互和参考 UI 方向统一维护在 [`design.md`](./design.md)。本文件不再重复 UI 草图或视觉布局细节。
 
-## 8. Session Card 字段
-
-每张卡片显示：
-
-- session name
-- agent kind: `none` / `claude-code` / `codex` / `unknown`
-- status
-- cwd / project label
-- git branch
-- last output preview，可配置是否持久化
-- status reason
-- last activity time
-- override badge，如果用户手动修正 agent 类型
-
-## 9. 状态模型
+## 8. 状态模型
 
 ```ts
 type AgentKind =
@@ -247,7 +206,7 @@ type SessionStatus =
 9. detected active child agent          → agentKind = claude-code/codex
 ```
 
-## 10. 隐私和存储原则
+## 9. 隐私和存储原则
 
 WrapX 会观察终端输出，所以默认按敏感数据处理。
 
@@ -265,7 +224,7 @@ v1 持久化：
 | mechanical event log | v1 内存 | v1 不持久化 |
 | Claude/Codex native session files | 否 | 不耦合、不读取 |
 
-## 11. 性能边界
+## 10. 性能边界
 
 默认限制：
 
@@ -278,7 +237,7 @@ v1 持久化：
 | process tree poll | 1-2 秒 | 状态够快，不浪费 CPU |
 | git branch refresh | 创建时 + 低频/手动 | 避免后台 git 卡顿 |
 
-## 12. 分发目标
+## 11. 分发目标
 
 v1 alpha 从 GitHub Releases 安装。
 
@@ -291,7 +250,7 @@ v1 alpha 从 GitHub Releases 安装。
 - 提供 installer 或 portable zip。
 - code signing 是 pre-beta 要求，不是 v1 alpha blocker。
 
-## 13. 成功标准
+## 12. 成功标准
 
 MVP 成功的定义：
 
@@ -305,7 +264,7 @@ MVP 成功的定义：
 8. 关闭 app 时明确提示会终止 active sessions。
 9. 用户能从 release artifact 安装，而不是只能源码运行。
 
-## 14. 当前结论
+## 13. 当前结论
 
 WrapX v1 的产品目标已经锁定：
 

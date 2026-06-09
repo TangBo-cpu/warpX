@@ -224,13 +224,8 @@ v1 使用本地 JSON。当前 M2 slice 尚未实现持久化，仍属于后续�
 
 ### 5.4 安全交互
 
-- [x] approval-needed card 只聚焦终端。
-- [x] 不发送 approval 文本。
-- [x] 不发送按键。
-- [ ] safe status action 只改 UI metadata：
-  - [ ] mark as unknown
-  - [ ] clear status reason
-  - [x] clear agent override
+- [x] 安全交互按 [`design.md`](./design.md) 执行：状态卡片只聚焦终端，不自动发送 approval 文本或按键。
+- [ ] 补齐 [`design.md`](./design.md) 中 safe status action 的未完成 metadata 动作。
 
 ## 6. M5：Windows alpha release
 
@@ -452,7 +447,7 @@ M0/M1/M2/M3-A/M4 当前已完成到 pre-alpha slice。
 - Session Card 显示 agent badge、检测 reason 和 override badge。
 - manual override 只改 UI metadata，不发送终端输入；清除 override 后恢复 auto detection。
 - `status_detector.rs` 已覆盖 approval/input/error/shell/running/unknown、跨 chunk、ANSI、bounded buffer、generic word negative tests。
-- `approval-needed` / `waiting-input` 是 UI 状态提示，不会自动发送 approval 文本或按键。
+- `approval-needed` / `waiting-input` 的 UI 安全交互规则已统一收敛到 [`design.md`](./design.md)。
 
 下一步：
 
