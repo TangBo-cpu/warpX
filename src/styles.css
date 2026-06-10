@@ -483,7 +483,8 @@ button:focus-visible,
   width: auto;
   min-width: 0;
   min-height: 0;
-  grid-template-columns: minmax(0, 1fr) clamp(288px, 25vw, 340px);
+  --sidebar-resizer-width: 10px;
+  grid-template-columns: minmax(0, 1fr) var(--sidebar-resizer-width) var(--sidebar-width, clamp(288px, 25vw, 340px));
   overflow: hidden;
   border: 0;
   background: var(--frame-background);
@@ -495,9 +496,51 @@ button:focus-visible,
   min-height: 0;
   flex-direction: column;
   overflow: hidden;
-  border-right: 1px solid var(--terminal-shell-border);
   background: transparent;
   backdrop-filter: blur(var(--appearance-surface-blur));
+}
+
+.sidebar-resizer {
+  position: relative;
+  min-width: var(--sidebar-resizer-width);
+  min-height: 0;
+  border: 0;
+  border-radius: 0;
+  padding: 0;
+  background: color-mix(in srgb, var(--frame-background) 70%, var(--terminal-shell-border) 30%);
+  cursor: col-resize;
+  touch-action: none;
+  user-select: none;
+}
+
+.sidebar-resizer::before {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: 50%;
+  width: 1px;
+  background: var(--terminal-shell-border);
+  content: "";
+  transform: translateX(-50%);
+}
+
+.sidebar-resizer:hover,
+.sidebar-resizer:focus-visible,
+.workspace-card.is-sidebar-resizing .sidebar-resizer {
+  background: color-mix(in srgb, var(--accent-warm) 16%, var(--frame-background));
+  outline: none;
+}
+
+.sidebar-resizer:hover::before,
+.sidebar-resizer:focus-visible::before,
+.workspace-card.is-sidebar-resizing .sidebar-resizer::before {
+  width: 2px;
+  background: var(--border-strong);
+}
+
+.workspace-card.is-sidebar-resizing {
+  cursor: col-resize;
+  user-select: none;
 }
 
 .session-avatar {
@@ -1253,8 +1296,11 @@ button:focus-visible,
 
   .terminal-card {
     min-height: 58vh;
-    border-right: 0;
     border-bottom: 1px solid rgba(255, 255, 255, 0.055);
+  }
+
+  .sidebar-resizer {
+    display: none;
   }
 
   .terminal-status-widget {
