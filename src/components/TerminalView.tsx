@@ -3,7 +3,7 @@ import { listen, type UnlistenFn } from "@tauri-apps/api/event";
 import { getCurrentWindow } from "@tauri-apps/api/window";
 import type { FitAddon } from "@xterm/addon-fit";
 import type { Terminal } from "@xterm/xterm";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, type CSSProperties, type KeyboardEvent, type PointerEvent } from "react";
 import { Sidebar } from "./Sidebar";
 import {
   AGENT_DISPLAY,
@@ -83,6 +83,13 @@ const MAX_TERMINAL_FONT_SIZE = 72;
 const DEFAULT_TERMINAL_LINE_HEIGHT = 1;
 const MIN_TERMINAL_LINE_HEIGHT = 0.8;
 const MAX_TERMINAL_LINE_HEIGHT = 2;
+const SIDEBAR_STORAGE_KEY = "wrapx-sidebar-width";
+const SIDEBAR_MIN_WIDTH = 280;
+const SIDEBAR_MAX_WIDTH = 560;
+const SIDEBAR_FALLBACK_WIDTH = 380;
+const SIDEBAR_RESIZER_WIDTH = 10;
+const SIDEBAR_KEYBOARD_STEP = 16;
+const TERMINAL_MIN_WIDTH = 420;
 
 type ThemeMode = "light" | "dark";
 
@@ -141,6 +148,28 @@ function getTauriWindow(): ReturnType<typeof getCurrentWindow> | null {
   }
 }
 
+function getInitialSidebarWidth() {
+  try {
+    const storedWidth = window.localStorage.getItem(SIDEBAR_STORAGE_KEY);
+    if (!storedWidth) {
+      return null;
+    }
+
+    const parsedWidth = Number(storedWidth);
+    return Number.isFinite(parsedWidth) ? clampSidebarWidth(parsedWidth) : null;
+  } catch {
+    return null;
+  }
+}
+
+function clampSidebarWidth(width: number, maxWidth = SIDEBAR_MAX_WIDTH) {
+  const safeMaxWidth = Number.isFinite(maxWidth)
+    ? Math.max(SIDEBAR_MIN_WIDTH, Math.min(SIDEBAR_MAX_WIDTH, maxWidth))
+    : SIDEBAR_MAX_WIDTH;
+  const safeWidth = Number.isFinite(width) ? width : SIDEBAR_FALLBACK_WIDTH;
+  return Math.round(Math.min(Math.max(safeWidth, SIDEBAR_MIN_WIDTH), safeMaxWidth));
+}
+
 export function TerminalView({ theme, onToggleTheme }: TerminalViewProps) {
   const hostsRef = useRef<Record<string, HTMLDivElement | null>>({});
   const terminalRuntimesRef = useRef(new Map<string, TerminalRuntime>());
@@ -150,9 +179,14 @@ export function TerminalView({ theme, onToggleTheme }: TerminalViewProps) {
   const appCloseInProgressRef = useRef(false);
   const closedSessionIdsRef = useRef(new Set<string>());
   const sessionCounterRef = useRef(1);
+  const workspaceRef = useRef<HTMLElement | null>(null);
+  const sidebarResizeFrameRef = useRef<number | null>(null);
+  const isResizingSidebarRef = useRef(false);
   const [sessions, setSessions] = useState<Session[]>([]);
   const [activeSessionId, setActiveSessionId] = useState<string | null>(null);
   const [terminalAppearance, setTerminalAppearance] = useState<TerminalProfileAppearance | null>(null);
+  const [sidebarWidth, setSidebarWidth] = useState<number | null>(getInitialSidebarWidth);
+  const [isResizingSidebar, setIsResizingSidebar] = useState(false);
   const activeSession = sessions.find((session) => session.id === activeSessionId) ?? null;
 
   useEffect(() => {
@@ -200,14 +234,31 @@ export function TerminalView({ theme, onToggleTheme }: TerminalViewProps) {
 
   useEffect(() => {
     const resize = () => {
+      setSidebarWidth((currentWidth) => {
+        if (currentWidth === null) {
+          return currentWidth;
+        }
+
+        return clampSidebarWidth(currentWidth, getSidebarMaxWidth());
+      });
+
       const sessionId = activeSessionIdRef.current;
       if (sessionId) {
         fitAndResize(sessionId);
       }
     };
 
+    resize();
     window.addEventListener("resize", resize);
     return () => window.removeEventListener("resize", resize);
+  }, []);
+
+  useEffect(() => {
+    return () => {
+      if (sidebarResizeFrameRef.current !== null) {
+        cancelAnimationFrame(sidebarResizeFrameRef.current);
+      }
+    };
   }, []);
 
   useEffect(() => {
@@ -565,6 +616,120 @@ export function TerminalView({ theme, onToggleTheme }: TerminalViewProps) {
     focusActiveTerminal();
   }
 
+  function getSidebarMaxWidth() {
+    const workspace = workspaceRef.current;
+    if (!workspace) {
+      return SIDEBAR_MAX_WIDTH;
+    }
+
+    const availableWidth = workspace.getBoundingClientRect().width - TERMINAL_MIN_WIDTH - SIDEBAR_RESIZER_WIDTH;
+    return Math.max(SIDEBAR_MIN_WIDTH, Math.min(SIDEBAR_MAX_WIDTH, availableWidth));
+  }
+
+  function getCurrentSidebarWidth() {
+    if (sidebarWidth !== null) {
+      return sidebarWidth;
+    }
+
+    const sidebar = workspaceRef.current?.querySelector<HTMLElement>(".sidebar");
+    return sidebar?.getBoundingClientRect().width ?? SIDEBAR_FALLBACK_WIDTH;
+  }
+
+  function getSidebarWidthFromPointer(clientX: number) {
+    const workspace = workspaceRef.current;
+    if (!workspace) {
+      return getCurrentSidebarWidth();
+    }
+
+    return workspace.getBoundingClientRect().right - clientX;
+  }
+
+  function updateSidebarWidth(width: number) {
+    const nextWidth = clampSidebarWidth(width, getSidebarMaxWidth());
+    setSidebarWidth(nextWidth);
+    scheduleSidebarResizeFit();
+    return nextWidth;
+  }
+
+  function persistSidebarWidth(width: number) {
+    try {
+      window.localStorage.setItem(SIDEBAR_STORAGE_KEY, String(width));
+    } catch {
+      // Sidebar width persistence is a convenience; the resize itself should still work.
+    }
+  }
+
+  function scheduleSidebarResizeFit() {
+    if (sidebarResizeFrameRef.current !== null) {
+      return;
+    }
+
+    sidebarResizeFrameRef.current = requestAnimationFrame(() => {
+      sidebarResizeFrameRef.current = null;
+      const sessionId = activeSessionIdRef.current;
+      if (sessionId) {
+        fitAndResize(sessionId);
+      }
+    });
+  }
+
+  function finishSidebarResize(event: PointerEvent<HTMLDivElement>) {
+    if (!isResizingSidebarRef.current) {
+      return;
+    }
+
+    event.preventDefault();
+    if (event.currentTarget.hasPointerCapture(event.pointerId)) {
+      event.currentTarget.releasePointerCapture(event.pointerId);
+    }
+
+    isResizingSidebarRef.current = false;
+    setIsResizingSidebar(false);
+    persistSidebarWidth(updateSidebarWidth(getSidebarWidthFromPointer(event.clientX)));
+    scheduleSidebarResizeFit();
+  }
+
+  function handleSidebarResizePointerDown(event: PointerEvent<HTMLDivElement>) {
+    if (event.button !== 0) {
+      return;
+    }
+
+    event.preventDefault();
+    isResizingSidebarRef.current = true;
+    setIsResizingSidebar(true);
+    event.currentTarget.setPointerCapture(event.pointerId);
+    updateSidebarWidth(getSidebarWidthFromPointer(event.clientX));
+  }
+
+  function handleSidebarResizePointerMove(event: PointerEvent<HTMLDivElement>) {
+    if (!isResizingSidebarRef.current) {
+      return;
+    }
+
+    event.preventDefault();
+    updateSidebarWidth(getSidebarWidthFromPointer(event.clientX));
+  }
+
+  function handleSidebarResizeKeyDown(event: KeyboardEvent<HTMLDivElement>) {
+    const currentWidth = clampSidebarWidth(getCurrentSidebarWidth(), getSidebarMaxWidth());
+    let nextWidth: number;
+
+    if (event.key === "ArrowLeft") {
+      nextWidth = currentWidth + SIDEBAR_KEYBOARD_STEP;
+    } else if (event.key === "ArrowRight") {
+      nextWidth = currentWidth - SIDEBAR_KEYBOARD_STEP;
+    } else if (event.key === "Home") {
+      nextWidth = SIDEBAR_MIN_WIDTH;
+    } else if (event.key === "End") {
+      nextWidth = getSidebarMaxWidth();
+    } else {
+      return;
+    }
+
+    event.preventDefault();
+    persistSidebarWidth(updateSidebarWidth(nextWidth));
+  }
+
   function fitAndResize(sessionId: string) {
     const runtime = terminalRuntimesRef.current.get(sessionId);
     const host = hostsRef.current[sessionId];
@@ -731,9 +896,14 @@ export function TerminalView({ theme, onToggleTheme }: TerminalViewProps) {
   const activeMessage = activeSession
     ? getSessionStatusMessage(activeSession)
     : "Create a session from the Sessions panel.";
+  const workspaceClassName = `workspace-card${isResizingSidebar ? " is-sidebar-resizing" : ""}`;
+  const workspaceStyle = sidebarWidth === null
+    ? undefined
+    : ({ "--sidebar-width": `${sidebarWidth}px` } as CSSProperties);
+  const sidebarValueNow = Math.round(getCurrentSidebarWidth());
 
   return (
-    <section className="workspace-card">
+    <section ref={workspaceRef} className={workspaceClassName} style={workspaceStyle}>
       <section className="terminal-card">
         <div className={`terminal-status-widget is-${activeSession?.status ?? "idle"}`}>
           <span className={`terminal-status-glyph is-${activeSession?.agentKind ?? "none"}`} aria-hidden="true">
@@ -783,6 +953,22 @@ export function TerminalView({ theme, onToggleTheme }: TerminalViewProps) {
           ))}
         </div>
       </section>
+
+      <div
+        aria-label="Resize sidebar"
+        aria-orientation="vertical"
+        aria-valuemax={SIDEBAR_MAX_WIDTH}
+        aria-valuemin={SIDEBAR_MIN_WIDTH}
+        aria-valuenow={sidebarValueNow}
+        className="sidebar-resizer"
+        role="separator"
+        tabIndex={0}
+        onKeyDown={handleSidebarResizeKeyDown}
+        onPointerCancel={finishSidebarResize}
+        onPointerDown={handleSidebarResizePointerDown}
+        onPointerMove={handleSidebarResizePointerMove}
+        onPointerUp={finishSidebarResize}
+      />
 
       <Sidebar
         activeSessionId={activeSessionId}
