@@ -1,5 +1,6 @@
 import { convertFileSrc, invoke } from "@tauri-apps/api/core";
-import { useMemo, useState, type CSSProperties } from "react";
+import { getCurrentWindow } from "@tauri-apps/api/window";
+import { useEffect, useMemo, useState, type CSSProperties } from "react";
 import {
   DEFAULT_APPEARANCE_SETTINGS,
   getInitialAppearanceSettings,
@@ -8,9 +9,9 @@ import {
   saveAppearanceSettings,
   type AppearanceSettings,
 } from "./appearance";
-import { AppMenu } from "./components/AppMenu";
 import { AppearancePanel } from "./components/AppearancePanel";
-import { TerminalView, type TerminalShellApi } from "./components/TerminalView";
+import { TerminalView } from "./components/TerminalView";
+import { WindowTitlebar } from "./components/WindowTitlebar";
 import type { ActiveSessionSummary } from "./sessionDisplay";
 
 type ThemeMode = "light" | "dark";
@@ -20,10 +21,38 @@ type ImportedBackgroundImage = {
 };
 
 const THEME_STORAGE_KEY = "wrapx-theme";
+const MAX_BACKGROUND_IMAGE_BYTES = 20 * 1024 * 1024;
+const SUPPORTED_BACKGROUND_IMAGE_EXTENSIONS = new Set(["png", "jpg", "jpeg", "webp"]);
+const SUPPORTED_BACKGROUND_IMAGE_MIME_TYPES = new Set(["image/png", "image/jpeg", "image/webp"]);
 
 function getInitialTheme(): ThemeMode {
   const storedTheme = window.localStorage.getItem(THEME_STORAGE_KEY);
   return storedTheme === "dark" || storedTheme === "light" ? storedTheme : "light";
+}
+
+function setNativeWindowTitle(title: string) {
+  try {
+    void getCurrentWindow().setTitle(title).catch(() => undefined);
+  } catch {
+    // Running in a browser preview without the Tauri window API is harmless.
+  }
+}
+
+function backgroundImageValidationError(file: File) {
+  const extension = file.name.split(".").pop()?.toLowerCase();
+  const mimeType = file.type.toLowerCase();
+  const hasSupportedExtension = extension ? SUPPORTED_BACKGROUND_IMAGE_EXTENSIONS.has(extension) : false;
+  const hasSupportedMimeType = mimeType ? SUPPORTED_BACKGROUND_IMAGE_MIME_TYPES.has(mimeType) : false;
+
+  if (file.size > MAX_BACKGROUND_IMAGE_BYTES) {
+    return "背景图片不能超过 20MB。";
+  }
+
+  if (!hasSupportedExtension || (mimeType && !hasSupportedMimeType)) {
+    return "请选择 PNG、JPG 或 WebP 图片。";
+  }
+
+  return undefined;
 }
 
 export default function App() {
@@ -32,7 +61,6 @@ export default function App() {
   const [appearancePanelOpen, setAppearancePanelOpen] = useState(false);
   const [appearanceStatus, setAppearanceStatus] = useState<string | undefined>();
   const [activeSessionSummary, setActiveSessionSummary] = useState<ActiveSessionSummary | null>(null);
-  const [terminalShellApi, setTerminalShellApi] = useState<TerminalShellApi | null>(null);
   const backgroundImageUrl = appearance.backgroundImagePath
     ? convertFileSrc(appearance.backgroundImagePath)
     : undefined;
@@ -40,6 +68,14 @@ export default function App() {
     () => resolveAppearanceCssVariables(appearance, backgroundImageUrl) as CSSProperties,
     [appearance, backgroundImageUrl],
   );
+
+  useEffect(() => {
+    const title = activeSessionSummary
+      ? `WrapX — ${activeSessionSummary.name} · ${activeSessionSummary.statusLabel} · ${activeSessionSummary.cwdLabel}`
+      : "WrapX";
+
+    setNativeWindowTitle(title);
+  }, [activeSessionSummary]);
 
   function toggleTheme() {
     const nextTheme = theme === "light" ? "dark" : "light";
@@ -60,8 +96,10 @@ export default function App() {
   }
 
   async function importBackgroundImage(file: File) {
-    if (!file.type.startsWith("image/")) {
-      setAppearanceStatus("请选择图片文件。");
+    const validationError = backgroundImageValidationError(file);
+
+    if (validationError) {
+      setAppearanceStatus(validationError);
       return;
     }
 
@@ -92,21 +130,12 @@ export default function App() {
 
   return (
     <main className="app-shell" data-theme={theme} style={appearanceStyle}>
-      <AppMenu
-        activeSessionSummary={activeSessionSummary}
-        canUseSessionActions={Boolean(activeSessionSummary)}
-        theme={theme}
-        workspaceLabel="E:\\Code-All\\wrapx"
-        onClearTerminal={() => terminalShellApi?.clearActiveTerminal()}
-        onCopySelection={() => void terminalShellApi?.copyActiveSelection()}
-        onOpenAppearance={() => setAppearancePanelOpen(true)}
-        onPasteClipboard={() => void terminalShellApi?.pasteActiveClipboard()}
-        onToggleTheme={toggleTheme}
-      />
+      <WindowTitlebar />
       <TerminalView
         theme={theme}
-        onReady={setTerminalShellApi}
+        onOpenAppearance={() => setAppearancePanelOpen(true)}
         onSessionSummaryChange={setActiveSessionSummary}
+        onToggleTheme={toggleTheme}
       />
       {appearancePanelOpen ? (
         <AppearancePanel

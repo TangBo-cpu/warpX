@@ -108,7 +108,7 @@ const DARK_TERMINAL_THEME: TerminalColorTheme = {
 };
 
 const LIGHT_TERMINAL_THEME: TerminalColorTheme = {
-  background: "rgba(255, 255, 255, 0.66)",
+  background: "rgba(255, 255, 255, 0.38)",
   foreground: "#1f2937",
   cursor: "#1d4ed8",
   selectionBackground: "rgba(37, 99, 235, 0.18)",
@@ -163,18 +163,13 @@ type TerminalProfileAppearance = {
   theme: TerminalColorTheme;
 };
 
-export type TerminalShellApi = {
-  clearActiveTerminal: () => void;
-  copyActiveSelection: () => Promise<void>;
-  pasteActiveClipboard: () => Promise<void>;
-};
-
 type ThemeMode = "light" | "dark";
 
 type TerminalViewProps = {
   theme: ThemeMode;
-  onReady: (api: TerminalShellApi) => void;
+  onOpenAppearance: () => void;
   onSessionSummaryChange: (summary: ActiveSessionSummary | null) => void;
+  onToggleTheme: () => void;
 };
 
 let terminalModulesPromise: Promise<TerminalModules> | null = null;
@@ -194,7 +189,12 @@ function getTauriWindow(): ReturnType<typeof getCurrentWindow> | null {
   }
 }
 
-export function TerminalView({ theme, onReady, onSessionSummaryChange }: TerminalViewProps) {
+export function TerminalView({
+  theme,
+  onOpenAppearance,
+  onSessionSummaryChange,
+  onToggleTheme,
+}: TerminalViewProps) {
   const hostsRef = useRef<Record<string, HTMLDivElement | null>>({});
   const terminalRuntimesRef = useRef(new Map<string, TerminalRuntime>());
   const sessionsRef = useRef<Session[]>([]);
@@ -208,10 +208,6 @@ export function TerminalView({ theme, onReady, onSessionSummaryChange }: Termina
   const [activeSessionId, setActiveSessionId] = useState<string | null>(null);
   const [terminalAppearance, setTerminalAppearance] = useState<TerminalProfileAppearance | null>(null);
   const activeSession = sessions.find((session) => session.id === activeSessionId) ?? null;
-
-  useEffect(() => {
-    onReady({ clearActiveTerminal, copyActiveSelection, pasteActiveClipboard });
-  }, [onReady]);
 
   useEffect(() => {
     if (!activeSession) {
@@ -845,10 +841,13 @@ export function TerminalView({ theme, onReady, onSessionSummaryChange }: Termina
         disabled={sessions.length >= MAX_LIVE_SESSIONS}
         nextSessionNumber={sessionCounterRef.current}
         sessions={sessions}
+        theme={theme}
         onAgentOverride={setAgentOverride}
         onCloseSession={closeSession}
         onCreateSession={createSession}
+        onOpenAppearance={onOpenAppearance}
         onSelectSession={selectSession}
+        onToggleTheme={onToggleTheme}
       />
     </section>
   );

@@ -3,16 +3,21 @@ import type { AgentKind, Session } from "../types/session";
 import { NewSessionDialog } from "./NewSessionDialog";
 import { SessionCard } from "./SessionCard";
 
+type ThemeMode = "light" | "dark";
+
 type SidebarProps = {
   sessions: Session[];
   activeSessionId: string | null;
   defaultCwd: string;
   disabled: boolean;
   nextSessionNumber: number;
+  theme: ThemeMode;
   onCreateSession: (name: string, cwd: string) => void;
   onSelectSession: (sessionId: string) => void;
   onCloseSession: (sessionId: string) => void;
   onAgentOverride: (sessionId: string, override?: AgentKind) => void;
+  onOpenAppearance: () => void;
+  onToggleTheme: () => void;
 };
 
 export function Sidebar({
@@ -21,10 +26,13 @@ export function Sidebar({
   defaultCwd,
   disabled,
   nextSessionNumber,
+  theme,
   onCreateSession,
   onSelectSession,
   onCloseSession,
   onAgentOverride,
+  onOpenAppearance,
+  onToggleTheme,
 }: SidebarProps) {
   const [showNewSessionForm, setShowNewSessionForm] = useState(false);
 
@@ -36,12 +44,26 @@ export function Sidebar({
   return (
     <aside className="sidebar">
       <div className="sidebar-header">
-        <div className="sidebar-tabs" aria-label="Session views">
-          <span className="sidebar-tab is-active">Sessions</span>
-          <span className="sidebar-tab">Activity</span>
-        </div>
+        <strong className="sidebar-title">{sessions.length}/8 sessions</strong>
         <div className="sidebar-actions">
-          <span className="sidebar-count">{sessions.length}/8</span>
+          <button
+            aria-label="Open appearance settings"
+            className="sidebar-action"
+            title="Appearance"
+            type="button"
+            onClick={onOpenAppearance}
+          >
+            ⚙
+          </button>
+          <button
+            aria-label={theme === "light" ? "Switch to dark theme" : "Switch to light theme"}
+            className="sidebar-action"
+            title={theme === "light" ? "Dark theme" : "Light theme"}
+            type="button"
+            onClick={onToggleTheme}
+          >
+            {theme === "light" ? "☾" : "☀"}
+          </button>
           <button
             aria-label="New session"
             className="sidebar-action"

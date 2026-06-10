@@ -86,7 +86,7 @@ export const DEFAULT_APPEARANCE_SETTINGS: AppearanceSettings = {
   intensity: 0.45,
   backgroundImageFit: "cover",
   backgroundImageAlignment: "center",
-  backgroundImageOpacity: 0.35,
+  backgroundImageOpacity: 0.6,
   acrylicEnabled: true,
 };
 
@@ -390,27 +390,107 @@ export function resolveAppearanceCssVariables(
 ): Record<string, string> {
   const preset = PRESET_RENDERING[settings.preset];
   const intensity = clamp01(settings.intensity);
+  const rawBackgroundImageOpacity = backgroundImageUrl ? clamp01(settings.backgroundImageOpacity) : 0;
+  const backgroundImageOpacity = backgroundImageUrl
+    ? resolveBackgroundImageOpacity(settings.preset, rawBackgroundImageOpacity)
+    : 0;
   const blurPx = settings.acrylicEnabled ? lerp(preset.blurMin, preset.blurMax, intensity) : 0;
+  const imageBlurPx = 0;
+  const crispLightImage = Boolean(backgroundImageUrl && settings.preset === "ivory-glass");
+  const surfaceBlurPx = backgroundImageUrl ? (crispLightImage ? 0 : Math.min(3, blurPx * 0.18)) : blurPx;
   const imageLayout = backgroundImageLayout(settings.backgroundImageFit, settings.backgroundImageAlignment);
+  const frameAlpha = softenSurfaceAlpha(
+    lerpPair(preset.frameAlpha, intensity),
+    backgroundImageOpacity,
+    crispLightImage ? 1.65 : 1.35,
+    crispLightImage ? 0.14 : 0.28,
+  );
+  const terminalPaneBaseAlpha = lerpPair(preset.terminalPaneAlpha, intensity);
+  const terminalPaneAlpha = softenSurfaceAlpha(
+    terminalPaneBaseAlpha,
+    backgroundImageOpacity,
+    crispLightImage ? 0.62 : 0.45,
+    crispLightImage ? 0.44 : 0.52,
+  );
+  const terminalPaneEndAlpha = softenSurfaceAlpha(
+    Math.max(0.78, terminalPaneBaseAlpha - 0.04),
+    backgroundImageOpacity,
+    crispLightImage ? 0.5 : 0.35,
+    crispLightImage ? 0.4 : 0.48,
+  );
+  const terminalHeaderAlpha = softenSurfaceAlpha(
+    lerpPair(preset.terminalHeaderAlpha, intensity),
+    backgroundImageOpacity,
+    crispLightImage ? 0.9 : 0.7,
+    crispLightImage ? 0.22 : 0.34,
+  );
+  const sidebarAlpha = softenSurfaceAlpha(
+    lerpPair(preset.sidebarAlpha, intensity),
+    backgroundImageOpacity,
+    crispLightImage ? 1.15 : 0.9,
+    crispLightImage ? 0.22 : 0.3,
+  );
+  const cardAlpha = softenSurfaceAlpha(
+    lerpPair(preset.cardAlpha, intensity),
+    backgroundImageOpacity,
+    crispLightImage ? 1.05 : 0.9,
+    crispLightImage ? 0.26 : 0.3,
+  );
+  const cardActiveAlpha = softenSurfaceAlpha(
+    lerpPair(preset.cardActiveAlpha, intensity),
+    backgroundImageOpacity,
+    crispLightImage ? 0.82 : 0.65,
+    crispLightImage ? 0.34 : 0.4,
+  );
+  const elevatedAlpha = softenSurfaceAlpha(
+    lerpPair(preset.elevatedAlpha, intensity),
+    backgroundImageOpacity,
+    crispLightImage ? 0.95 : 0.75,
+    crispLightImage ? 0.26 : 0.32,
+  );
+  const terminalShellOverlayTopAlpha = softenSurfaceAlpha(
+    Math.max(0.2, terminalPaneBaseAlpha - 0.34),
+    backgroundImageOpacity,
+    crispLightImage ? 0.9 : 0.75,
+    crispLightImage ? 0.04 : 0.08,
+  );
+  const terminalShellOverlayBottomAlpha = softenSurfaceAlpha(
+    Math.max(0.16, terminalPaneBaseAlpha - 0.46),
+    backgroundImageOpacity,
+    crispLightImage ? 0.78 : 0.65,
+    crispLightImage ? 0.03 : 0.06,
+  );
+  const topbarAlpha = crispLightImage ? 0.62 : Math.min(0.98, frameAlpha + 0.04);
+  const topbarSessionAlpha = crispLightImage ? 0.2 : 0.05;
+  const topbarControlAlpha = crispLightImage ? 0.18 : 0.035;
+  const topbarMenuAlpha = crispLightImage ? 0.9 : 0.98;
+  const topbarBlurPx = crispLightImage ? 0 : 14;
+  const topbarMenuBlurPx = crispLightImage ? 0 : 16;
 
   return {
     "--appearance-base-color": preset.baseColor,
     "--appearance-gradient": preset.gradient,
     "--appearance-vignette": preset.vignette,
     "--appearance-blur": `${blurPx.toFixed(1)}px`,
+    "--appearance-surface-blur": `${surfaceBlurPx.toFixed(1)}px`,
+    "--appearance-image-blur": `${imageBlurPx.toFixed(1)}px`,
+    "--appearance-preview-blur": `${imageBlurPx.toFixed(1)}px`,
     "--appearance-image": backgroundImageUrl ? cssUrl(backgroundImageUrl) : "none",
-    "--appearance-image-opacity": backgroundImageUrl ? String(settings.backgroundImageOpacity) : "0",
+    "--appearance-image-opacity": backgroundImageUrl ? String(backgroundImageOpacity) : "0",
     "--appearance-image-size": imageLayout.size,
     "--appearance-image-position": imageLayout.position,
     "--appearance-image-repeat": imageLayout.repeat,
+    "--appearance-surface-reveal": String(backgroundImageOpacity),
+    "--terminal-shell-overlay-top": rgba(preset.terminalPane, terminalShellOverlayTopAlpha),
+    "--terminal-shell-overlay-bottom": rgba(preset.terminalPane, terminalShellOverlayBottomAlpha),
     "--app-background": "var(--appearance-vignette), var(--appearance-gradient), var(--appearance-base-color)",
     "--surface-app": preset.baseColor,
-    "--surface-frame": rgba(preset.frame, lerpPair(preset.frameAlpha, intensity)),
+    "--surface-frame": rgba(preset.frame, frameAlpha),
     "--surface-terminal": preset.terminalBufferBg,
-    "--surface-sidebar": rgba(preset.sidebar, lerpPair(preset.sidebarAlpha, intensity)),
-    "--surface-card": rgba(preset.card, lerpPair(preset.cardAlpha, intensity)),
-    "--surface-card-active": rgba(preset.cardActive, lerpPair(preset.cardActiveAlpha, intensity)),
-    "--surface-elevated": rgba(preset.elevated, lerpPair(preset.elevatedAlpha, intensity)),
+    "--surface-sidebar": rgba(preset.sidebar, sidebarAlpha),
+    "--surface-card": rgba(preset.card, cardAlpha),
+    "--surface-card-active": rgba(preset.cardActive, cardActiveAlpha),
+    "--surface-elevated": rgba(preset.elevated, elevatedAlpha),
     "--text-primary": preset.textPrimary,
     "--text-secondary": preset.textSecondary,
     "--text-muted": preset.textMuted,
@@ -427,23 +507,23 @@ export function resolveAppearanceCssVariables(
     "--accent-warning": preset.accentWarning,
     "--accent-danger": preset.accentDanger,
     "--accent-neutral": preset.accentNeutral,
-    "--frame-background": rgba(preset.frame, lerpPair(preset.frameAlpha, intensity)),
+    "--frame-background": rgba(preset.frame, frameAlpha),
     "--terminal-pane-background": `linear-gradient(180deg, ${rgba(
       preset.terminalPane,
-      lerpPair(preset.terminalPaneAlpha, intensity),
-    )}, ${rgba(preset.terminalPane, Math.max(0.78, lerpPair(preset.terminalPaneAlpha, intensity) - 0.04))})`,
-    "--terminal-titlebar-bg": rgba(preset.terminalHeader, lerpPair(preset.terminalHeaderAlpha, intensity)),
+      terminalPaneAlpha,
+    )}, ${rgba(preset.terminalPane, terminalPaneEndAlpha)})`,
+    "--terminal-titlebar-bg": rgba(preset.terminalHeader, terminalHeaderAlpha),
     "--terminal-tab-bg": `linear-gradient(180deg, ${rgba(
       preset.terminalHeader,
-      Math.min(0.98, lerpPair(preset.terminalHeaderAlpha, intensity) + 0.08),
-    )}, ${rgba(preset.terminalHeader, lerpPair(preset.terminalHeaderAlpha, intensity))})`,
-    "--terminal-tab-border-bottom": rgba(preset.terminalHeader, lerpPair(preset.terminalHeaderAlpha, intensity)),
+      Math.min(0.98, terminalHeaderAlpha + 0.08),
+    )}, ${rgba(preset.terminalHeader, terminalHeaderAlpha)})`,
+    "--terminal-tab-border-bottom": rgba(preset.terminalHeader, terminalHeaderAlpha),
     "--terminal-buffer-bg": preset.terminalBufferBg,
     "--terminal-buffer-grid": preset.terminalBufferGrid,
     "--sidebar-background": `radial-gradient(circle at 50% 100%, ${preset.sidebarGlow}, transparent 34%), linear-gradient(180deg, ${rgba(
       preset.sidebar,
-      Math.min(0.98, lerpPair(preset.sidebarAlpha, intensity) + 0.1),
-    )}, ${rgba(preset.sidebar, lerpPair(preset.sidebarAlpha, intensity))})`,
+      Math.min(0.98, sidebarAlpha + 0.08),
+    )}, ${rgba(preset.sidebar, sidebarAlpha)})`,
     "--field-bg": rgba(preset.field, settings.preset === "midnight-glass" || settings.preset === "terminal-focus" ? 0.78 : 0.88),
     "--field-border": preset.controlBorder,
     "--button-bg": preset.buttonBg,
@@ -454,6 +534,12 @@ export function resolveAppearanceCssVariables(
     "--empty-text": preset.emptyText,
     "--shadow-frame": preset.shadowFrame,
     "--shadow-card": preset.shadowCard,
+    "--topbar-background": rgba(preset.frame, topbarAlpha),
+    "--topbar-session-bg": rgba(preset.frame, topbarSessionAlpha),
+    "--topbar-control-bg": rgba(preset.frame, topbarControlAlpha),
+    "--topbar-menu-bg": rgba(preset.frame, topbarMenuAlpha),
+    "--topbar-blur": `${topbarBlurPx}px`,
+    "--topbar-menu-blur": `${topbarMenuBlurPx}px`,
   };
 }
 
@@ -488,6 +574,18 @@ function lerp(start: number, end: number, amount: number) {
 
 function lerpPair([start, end]: [number, number], amount: number) {
   return lerp(start, end, amount);
+}
+
+function softenSurfaceAlpha(alpha: number, backgroundImageOpacity: number, amount: number, minimum: number) {
+  return Math.max(minimum, alpha - backgroundImageOpacity * amount);
+}
+
+function resolveBackgroundImageOpacity(preset: AppearancePreset, opacity: number) {
+  if (preset === "ivory-glass") {
+    return 1 - (1 - opacity) ** 1.8;
+  }
+
+  return opacity;
 }
 
 function rgba([red, green, blue]: Rgb, alpha: number) {

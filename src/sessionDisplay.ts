@@ -1,3 +1,7 @@
+import avatarCodeRanger from "./assets/status-avatars/avatar-code-ranger.png";
+import avatarHelperAlchemist from "./assets/status-avatars/avatar-helper-alchemist.png";
+import avatarNightArchivist from "./assets/status-avatars/avatar-night-archivist.png";
+import avatarTerminalMage from "./assets/status-avatars/avatar-terminal-mage.png";
 import type { AgentKind, Session, SessionStatus } from "./types/session";
 
 type AgentDisplay = {
@@ -20,6 +24,7 @@ export type SessionAvatarDisplay = {
   key: SessionAvatarKey;
   label: string;
   glyph: string;
+  imageUrl: string;
 };
 
 export type ActiveSessionSummary = {
@@ -54,23 +59,29 @@ export const SESSION_AVATAR_DISPLAY: Record<SessionAvatarKey, SessionAvatarDispl
     key: "terminal-mage",
     label: "terminal-mage",
     glyph: "TM",
+    imageUrl: avatarTerminalMage,
   },
   "helper-alchemist": {
     key: "helper-alchemist",
     label: "helper-alchemist",
     glyph: "HA",
+    imageUrl: avatarHelperAlchemist,
   },
   "code-ranger": {
     key: "code-ranger",
     label: "code-ranger",
     glyph: "CR",
+    imageUrl: avatarCodeRanger,
   },
   "night-archivist": {
     key: "night-archivist",
     label: "night-archivist",
     glyph: "NA",
+    imageUrl: avatarNightArchivist,
   },
 };
+
+const SESSION_AVATAR_KEYS = Object.keys(SESSION_AVATAR_DISPLAY) as SessionAvatarKey[];
 
 export const STATUS_DISPLAY: Record<SessionStatus, StatusDisplay> = {
   starting: {
@@ -112,22 +123,8 @@ export const STATUS_DISPLAY: Record<SessionStatus, StatusDisplay> = {
 };
 
 export function getSessionAvatar(session: Session): SessionAvatarDisplay {
-  switch (session.status) {
-    case "running":
-      return SESSION_AVATAR_DISPLAY["helper-alchemist"];
-    case "waiting-input":
-    case "approval-needed":
-      return SESSION_AVATAR_DISPLAY["night-archivist"];
-    case "shell":
-    case "exited":
-    case "closed":
-      return SESSION_AVATAR_DISPLAY["code-ranger"];
-    case "starting":
-    case "unknown":
-    case "error":
-    default:
-      return SESSION_AVATAR_DISPLAY["terminal-mage"];
-  }
+  const avatarKey = SESSION_AVATAR_KEYS[stableIndex(session.id, SESSION_AVATAR_KEYS.length)];
+  return SESSION_AVATAR_DISPLAY[avatarKey];
 }
 
 export function getSessionStatusMessage(session: Session) {
@@ -143,6 +140,16 @@ export function getSessionCwdLabel(cwd: string) {
 
 export function formatSessionActivityAge(session: Session) {
   return formatAge(session.statusReasonAt ?? session.lastActivityAt ?? session.createdAt);
+}
+
+function stableIndex(value: string, modulo: number) {
+  let hash = 0;
+
+  for (let index = 0; index < value.length; index += 1) {
+    hash = (hash * 31 + value.charCodeAt(index)) >>> 0;
+  }
+
+  return hash % modulo;
 }
 
 function formatAge(value?: string) {

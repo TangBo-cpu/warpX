@@ -74,12 +74,8 @@ export function SessionCard({
         }
       }}
     >
-      <span
-        className={`session-avatar is-${avatar.key}`}
-        title={avatar.label}
-        aria-hidden="true"
-      >
-        {avatar.glyph}
+      <span className={`session-avatar is-${avatar.key}`} title={avatar.label} aria-hidden="true">
+        <img alt="" src={avatar.imageUrl} />
       </span>
 
       <span className="session-card-main">

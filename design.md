@@ -52,12 +52,12 @@ WrapX 是 Windows app。默认不模拟 macOS 窗口控制。真实 minimize / m
 
 ```text
 ┌──────────────────────────────────────────────────────────────────────┐
-│ Windows top tab/title bar                                             │
+│ Custom Windows title bar: app mark + drag space + window controls      │
 ├───────────────────────────────────────────────┬──────────────────────┤
 │ Main Terminal Area                             │ Sessions Sidebar      │
 │                                               │                      │
-│ - ActiveSessionStatusWidget                    │ - Sessions / Activity │
-│ - 大面积真实 terminal 输出区                   │ - session cards       │
+│ - 大面积真实 terminal 输出区，贴边铺满         │ - session cards       │
+│                                               │ - appearance/theme/+  │
 │                                               │ - 新建 session 入口   │
 └───────────────────────────────────────────────┴──────────────────────┘
 ```
@@ -81,58 +81,19 @@ WrapX 是 Windows app。默认不模拟 macOS 窗口控制。真实 minimize / m
 
 ```text
 ┌──────────────────────────────────────────────┐
-│ ActiveSessionStatusWidget                    │  cartoon capsule/card
-├──────────────────────────────────────────────┤
 │                                              │
-│ Real terminal output                         │  xterm.js
+│ Real terminal output                         │  xterm.js，贴边铺满
 │                                              │
 └──────────────────────────────────────────────┘
 ```
 
-主终端区域内部不再承担 Windows 窗口标签栏职责。窗口最顶部的 tab/title bar 独立定义在“Windows 顶部标签/标题栏自定义”。
+主终端区域内部不再承担 Windows 窗口标签栏职责，也不再额外放一条 active session status widget；custom title bar 只保留 app mark、拖拽空白区和窗口控制按钮。
 
-### 4.1 ActiveSessionStatusWidget / Cartoon Agent Status Bar
+### 4.1 Active Session Status Placement
 
-terminal 输出区正上方必须有一条 compact cartoon-style status bar。它是 active session 的状态小部件，视觉上应与右侧 Session Card 内的小部件几乎一致。
+当前方向不在 terminal 输出区上方额外放 `ActiveSessionStatusWidget`，custom title bar 中间也不再放 active session 小部件，避免重复状态区和未占满的空隙。
 
-建议命名：`ActiveSessionStatusWidget`，也可以在视觉文案中称为 **Agent Status Bar** 或 **Companion Status Bar**。
-
-位置：
-
-- 位于 Windows 顶部标签/标题栏下方的主内容区内，紧贴 xterm.js 输出区上方。
-- 不进入 terminal buffer，不影响终端原始输出。
-- 建议高度 32-40px，最多两行；不能变成大型 toolbar。
-
-内容：
-
-- agent icon / avatar / glyph：`PowerShell` / `Claude Code` / `Codex` / `Unknown`。
-- active session name。
-- project / cwd shorthand。
-- branch。
-- human-readable status label。
-- one-line status reason / short message。
-- last activity age。
-- 可选安全 metadata menu，例如 clear reason / mark unknown / clear override。
-
-视觉语言：
-
-- 圆角 capsule/card。
-- 温暖边框或细彩边。
-- 轻微阴影和内高光。
-- 小型 cartoon / pixel / sticker-like 状态图标可以加入，但不能幼稚化或干扰阅读。
-- `approval-needed` / `waiting-input` 可使用更明显的轮廓、微光或顶部彩条。
-- `shell` / `exited` / `unknown` 降低饱和度。
-
-示意：
-
-```text
-┌────────────────────────────────────────────────────────────┐
-│ [🤖] draftframe  main  Claude Code · Needs approval         │
-│      Review the command in the terminal              12s   │
-└────────────────────────────────────────────────────────────┘
-```
-
-这条 status widget 可以跟随主题和密度设置，但它不是用户截图中最顶部的 Windows tab/title bar。顶部栏详见“Windows 顶部标签/标题栏自定义”。
+完整 reason、管理动作和多 session 状态继续由右侧 Session Card 承担。terminal 主体保持最大化、贴边铺满，不为状态 widget 预留高度；active session 信息可保留在系统窗口标题等非主视觉位置。
 
 ### 4.3 终端主体
 
@@ -151,7 +112,7 @@ terminal 输出区正上方必须有一条 compact cartoon-style status bar。�
 
 ```text
 ┌──────────────────────────┐
-│ Sessions  Activity    +  │
+│ 0/8 sessions      ⚙  ☾  + │
 ├──────────────────────────┤
 │ ┌──────────────────────┐ │
 │ │ Session Card         │ │
@@ -163,14 +124,13 @@ terminal 输出区正上方必须有一条 compact cartoon-style status bar。�
 └──────────────────────────┘
 ```
 
-### 5.1 顶部 tabs
+### 5.1 顶部工具行
 
-右侧顶部保留两个语义入口：
+右侧顶部使用紧凑工具行，不再保留 `Sessions / Activity` 双 tab 占位：
 
-- `Sessions`：当前默认视图，显示 session cards。
-- `Activity`：后续可用于显示活动流、状态变化或历史事件。
-
-当前阶段可以只实现 `Sessions`，`Activity` 作为视觉占位。
+- 左侧显示当前 session 数量，例如 `0/8 sessions`。
+- 右侧提供 Appearance、theme toggle、new session `+`。
+- `Activity` 入口暂不显示；等真正有活动流功能时再加入，避免空占视觉层级。
 
 ### 5.2 新建入口
 
@@ -189,7 +149,7 @@ terminal 输出区正上方必须有一条 compact cartoon-style status bar。�
 
 每张卡片代表一个 PowerShell session。
 
-Session Card 使用与 `ActiveSessionStatusWidget` 同源的 `SessionStatusWidget`。卡片只是包裹身份、metadata 和少量管理操作；状态展示本身不能另起一套视觉语言。
+Session Card 是当前主要状态小部件。卡片包裹头像、身份、metadata 和少量管理操作；状态展示本身不能另起一套视觉语言。头像从 `src/assets/status-avatars` 的图片池中为每个 session 稳定分配，避免字母占位头像长期占主视觉。
 
 卡片展示层级：
 
@@ -265,10 +225,9 @@ StatusWidget
 
 - 颜色来自相同 status token map。
 - 状态文案来自相同 enum-to-label/message map。
-- icon / avatar / glyph 使用相同 agent token。
-- terminal variant 可以更宽、更横向、更详细。
+- avatar 使用 `src/assets/status-avatars` 图片池，按 session 稳定分配。
 - card variant 更紧凑，可以堆叠两到三行。
-- 不允许 terminal pill 和 session status badge 各写一套漂移的颜色和文案。
+- 不允许 session status badge 另写一套漂移的颜色和文案。
 
 ## 7. 状态展示和安全交互
 
@@ -445,36 +404,37 @@ data-theme="dark" | "light"
 
 ## 9. Windows 顶部标签/标题栏自定义
 
-用户所说的“状态栏”指窗口最顶部这一块，类似 Windows Terminal / WezTerm 的 tab/title bar：包含 tab 图标、tab 标题、关闭按钮、新建 tab 按钮、下拉入口，以及右侧可能存在的窗口拖拽区域。
+用户所说的“状态栏”指窗口最顶部这一块，类似 Windows Terminal / WezTerm 的 tab/title bar。当前实现采用 Tauri custom titlebar：关闭系统白色标题栏，在 WebView 顶部绘制 Windows-first 标题栏。
 
-这不是 terminal 内部 status line，也不是 `ActiveSessionStatusWidget`。设计和实现时必须把三者分开：
+这不是 terminal 内部 status line。当前阶段 active session 的紧凑状态并入这条 custom titlebar，右侧 Session Card 负责完整状态与管理动作：
 
 | 区域 | 位置 | 职责 |
 |---|---|---|
-| Windows top tab/title bar | 整个窗口最顶部 | tab、标题、图标、新建、关闭、下拉、窗口拖拽 |
-| ActiveSessionStatusWidget | terminal 输出区上方 | 当前 active session 的 agent 状态和短消息 |
-| Sessions Sidebar card | 右侧栏 | 多 session 状态导航 |
+| Custom Windows title bar | 整个窗口最顶部 | app 标识、active session 紧凑状态、窗口拖拽、最小化/最大化/关闭 |
+| Main terminal area | 左侧主区域 | 当前 active session 的真实 terminal 输出，贴边铺满 |
+| Sessions Sidebar card | 右侧栏 | 多 session 状态导航、完整 reason 和管理动作 |
 
 ### 9.1 默认布局
 
-顶部栏参考用户截图中的 Windows Terminal / WezTerm 结构：
+顶部栏参考用户截图中的 Windows app 顶部区域，但不再保留系统默认白色标题栏：
 
 ```text
 ┌──────────────────────────────────────────────────────────────────┐
-│ [icon] [agent glyph] Optimize UI design        ×   +   ˅          │
+│ [W] WrapX              [HA] PowerShell 1  Working · wrapx   − □ × │
 └──────────────────────────────────────────────────────────────────┘
 ```
 
 默认元素：
 
-- active tab 背景。
-- tab icon：shell / agent / workspace icon。
-- 可选 agent glyph：Claude Code / Codex / PowerShell。
-- tab title：session name 或当前工作标题。
-- close tab/session button。
-- new session button `+`。
-- dropdown / command menu button。
+- app mark / app name。
+- active session avatar / agent glyph。
+- active session name。
+- human-readable status label + cwd shorthand。
+- last activity age。
 - 可拖拽空白区域。
+- Windows-first 最小化 / 最大化 / 关闭按钮。
+
+新建 session、Appearance 和 theme toggle 放在右侧栏顶部工具行，避免标题栏变成第二套 toolbar。
 
 ### 9.2 可美化项
 
@@ -506,16 +466,13 @@ data-theme="dark" | "light"
 - `+` 只新建 session，不触发 agent 自动行为。
 - dropdown 只放安全命令：新建 session、主题、密度、设置、关于等；不放自动 approval。
 
-### 9.4 与 ActiveSessionStatusWidget 的关系
+### 9.4 与 Session Card 的关系
 
-顶部标签/标题栏负责窗口级和 tab 级导航；`ActiveSessionStatusWidget` 负责 active session 的 agent 状态。
+Custom titlebar 只展示 active session 的紧凑状态，避免 terminal 上方再出现第二条状态栏：
 
-两者可以共享 icon / agent glyph / theme tokens，但不要合并成一个区域：
-
-- 顶部栏：像 Windows Terminal / WezTerm tab bar，强调窗口导航和 session 标题。
-- ActiveSessionStatusWidget：像参考图 cartoon status card，强调 agent 当前状态、短消息和是否需要用户介入。
-
-如果顶部 tab 上显示状态，只能是很轻的点状/短 badge，例如 `Needs approval` 的小色点；完整 reason 和 action hint 留给 `ActiveSessionStatusWidget` 和右侧 Session Card。
+- 顶部栏：窗口级信息 + active session name/status/cwd/age。
+- 右侧 Session Card：多 session 导航、完整 reason、override、close 等管理动作。
+- terminal 主体：只负责真实终端输出，不承载产品状态条。
 
 ## 10. 视觉密度和层级
 
@@ -740,7 +697,7 @@ type AppearanceSettings = {
   intensity: 0.45,
   backgroundImageFit: "cover",
   backgroundImageAlignment: "center",
-  backgroundImageOpacity: 0.35,
+  backgroundImageOpacity: 0.6,
   acrylicEnabled: true
 }
 ```
@@ -860,6 +817,7 @@ TODO：Appearance 完整化
 - [ ] 支持用户自定义 surface opacity token。
 - [ ] 支持用户自定义 accent color 和 status color token。
 - [ ] 支持 light / dark / system 基础模式与 appearance preset 的关系定义。
+- [ ] 支持清理未被当前设置引用的 app-managed 背景图片文件，避免 `%APPDATA%/WrapX/backgrounds/` 长期堆积 orphan files。
 - [ ] 支持安全模式启动时跳过自定义外观。
 
 TODO：Terminal 文本设置
