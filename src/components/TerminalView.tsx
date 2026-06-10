@@ -6,11 +6,11 @@ import type { Terminal } from "@xterm/xterm";
 import { useEffect, useRef, useState } from "react";
 import { Sidebar } from "./Sidebar";
 import {
-  AGENT_DISPLAY,
   STATUS_DISPLAY,
   formatSessionActivityAge,
+  getSessionAvatar,
   getSessionCwdLabel,
-  getSessionStatusMessage,
+  type ActiveSessionSummary,
 } from "../sessionDisplay";
 import type { AgentKind, Session, SessionStatus } from "../types/session";
 
@@ -84,7 +84,51 @@ const DEFAULT_TERMINAL_LINE_HEIGHT = 1;
 const MIN_TERMINAL_LINE_HEIGHT = 0.8;
 const MAX_TERMINAL_LINE_HEIGHT = 2;
 
-type ThemeMode = "light" | "dark";
+const DARK_TERMINAL_THEME: TerminalColorTheme = {
+  background: "rgba(7, 10, 15, 0.62)",
+  foreground: "#f6f7fb",
+  cursor: "#ffd082",
+  selectionBackground: "rgba(130, 199, 255, 0.28)",
+  black: "#0b0d12",
+  red: "#ff8d82",
+  green: "#54d38f",
+  yellow: "#ffd082",
+  blue: "#82c7ff",
+  magenta: "#d7c2ff",
+  cyan: "#8be9fd",
+  white: "#d9dde7",
+  brightBlack: "#6b7280",
+  brightRed: "#ffb4aa",
+  brightGreen: "#86efac",
+  brightYellow: "#fde68a",
+  brightBlue: "#bfdbfe",
+  brightMagenta: "#e9d5ff",
+  brightCyan: "#a5f3fc",
+  brightWhite: "#ffffff",
+};
+
+const LIGHT_TERMINAL_THEME: TerminalColorTheme = {
+  background: "rgba(255, 255, 255, 0.38)",
+  foreground: "#1f2937",
+  cursor: "#1d4ed8",
+  selectionBackground: "rgba(37, 99, 235, 0.18)",
+  black: "#111827",
+  red: "#b91c1c",
+  green: "#217247",
+  yellow: "#b45309",
+  blue: "#1d4ed8",
+  magenta: "#7c3aed",
+  cyan: "#0f766e",
+  white: "#f3f4f6",
+  brightBlack: "#6b7280",
+  brightRed: "#dc2626",
+  brightGreen: "#15803d",
+  brightYellow: "#d97706",
+  brightBlue: "#2563eb",
+  brightMagenta: "#9333ea",
+  brightCyan: "#0891b2",
+  brightWhite: "#ffffff",
+};
 
 type TerminalColorTheme = {
   background?: string;
@@ -119,8 +163,12 @@ type TerminalProfileAppearance = {
   theme: TerminalColorTheme;
 };
 
+type ThemeMode = "light" | "dark";
+
 type TerminalViewProps = {
   theme: ThemeMode;
+  onOpenAppearance: () => void;
+  onSessionSummaryChange: (summary: ActiveSessionSummary | null) => void;
   onToggleTheme: () => void;
 };
 
@@ -141,12 +189,18 @@ function getTauriWindow(): ReturnType<typeof getCurrentWindow> | null {
   }
 }
 
-export function TerminalView({ theme, onToggleTheme }: TerminalViewProps) {
+export function TerminalView({
+  theme,
+  onOpenAppearance,
+  onSessionSummaryChange,
+  onToggleTheme,
+}: TerminalViewProps) {
   const hostsRef = useRef<Record<string, HTMLDivElement | null>>({});
   const terminalRuntimesRef = useRef(new Map<string, TerminalRuntime>());
   const sessionsRef = useRef<Session[]>([]);
   const activeSessionIdRef = useRef<string | null>(null);
   const terminalAppearanceRef = useRef<TerminalProfileAppearance | null>(null);
+  const appThemeRef = useRef<ThemeMode>(theme);
   const appCloseInProgressRef = useRef(false);
   const closedSessionIdsRef = useRef(new Set<string>());
   const sessionCounterRef = useRef(1);
@@ -156,8 +210,30 @@ export function TerminalView({ theme, onToggleTheme }: TerminalViewProps) {
   const activeSession = sessions.find((session) => session.id === activeSessionId) ?? null;
 
   useEffect(() => {
+    if (!activeSession) {
+      onSessionSummaryChange(null);
+      return;
+    }
+
+    onSessionSummaryChange({
+      name: activeSession.name,
+      statusLabel: STATUS_DISPLAY[activeSession.status].label,
+      cwdLabel: getSessionCwdLabel(activeSession.cwd),
+      age: formatSessionActivityAge(activeSession),
+      avatar: getSessionAvatar(activeSession),
+    });
+  }, [activeSession, onSessionSummaryChange]);
+
+  useEffect(() => {
     sessionsRef.current = sessions;
   }, [sessions]);
+
+  useEffect(() => {
+    appThemeRef.current = theme;
+    terminalRuntimesRef.current.forEach(({ terminal }) => {
+      applyTerminalAppearance(terminal, terminalAppearanceRef.current, theme);
+    });
+  }, [theme]);
 
   useEffect(() => {
     let cancelled = false;
@@ -182,7 +258,7 @@ export function TerminalView({ theme, onToggleTheme }: TerminalViewProps) {
     }
 
     terminalRuntimesRef.current.forEach(({ terminal }) => {
-      applyTerminalAppearance(terminal, terminalAppearance);
+      applyTerminalAppearance(terminal, terminalAppearance, appThemeRef.current);
     });
 
     const sessionId = activeSessionIdRef.current;
@@ -354,6 +430,10 @@ export function TerminalView({ theme, onToggleTheme }: TerminalViewProps) {
     };
   }, []);
 
+  function createDefaultSession() {
+    void createSession(`PowerShell ${sessionCounterRef.current}`, DEFAULT_CWD);
+  }
+
   async function createSession(name: string, cwd: string) {
     if (sessionsRef.current.length >= MAX_LIVE_SESSIONS) {
       return;
@@ -392,7 +472,14 @@ export function TerminalView({ theme, onToggleTheme }: TerminalViewProps) {
             return;
           }
 
-          const terminal = createTerminal(Terminal, sessionId, name, terminalAppearanceRef.current, () => canWriteToSession(sessionId));
+          const terminal = createTerminal(
+            Terminal,
+            sessionId,
+            name,
+            terminalAppearanceRef.current,
+            appThemeRef.current,
+            () => canWriteToSession(sessionId),
+          );
           const fitAddon = new FitAddon();
           terminal.loadAddon(fitAddon);
           attachTerminalKeys(terminal, sessionId, {
@@ -724,52 +811,16 @@ export function TerminalView({ theme, onToggleTheme }: TerminalViewProps) {
     }
   }
 
-  const activeAgent = activeSession ? AGENT_DISPLAY[activeSession.agentKind] : null;
-  const activeStatus = activeSession ? STATUS_DISPLAY[activeSession.status] : null;
-  const activeAge = activeSession ? formatSessionActivityAge(activeSession) : undefined;
-  const activeCwd = activeSession ? getSessionCwdLabel(activeSession.cwd) : "No session";
-  const activeMessage = activeSession
-    ? getSessionStatusMessage(activeSession)
-    : "Create a session from the Sessions panel.";
-
   return (
     <section className="workspace-card">
       <section className="terminal-card">
-        <div className={`terminal-status-widget is-${activeSession?.status ?? "idle"}`}>
-          <span className={`terminal-status-glyph is-${activeSession?.agentKind ?? "none"}`} aria-hidden="true">
-            {activeAgent?.glyph ?? ">"}
-          </span>
-          <span className="terminal-status-copy">
-            <span className="terminal-status-line">
-              <strong>{activeSession?.name ?? "No active session"}</strong>
-              <span>{activeCwd}</span>
-              <span>{activeAgent?.label ?? "PowerShell"}</span>
-              <span>{activeStatus?.label ?? "Idle"}</span>
-            </span>
-            <span className="terminal-status-message">{activeMessage}</span>
-          </span>
-          {activeAge ? <span className="terminal-status-age">{activeAge}</span> : null}
-          <div className="terminal-actions">
-            <button type="button" className="theme-toggle" onClick={onToggleTheme}>
-              {theme === "light" ? "Dark" : "Light"}
-            </button>
-            <button disabled={!activeSession} type="button" onClick={clearActiveTerminal}>
-              Clear
-            </button>
-            <button disabled={!activeSession} type="button" onClick={copyActiveSelection}>
-              Copy
-            </button>
-            <button disabled={!activeSession} type="button" onClick={pasteActiveClipboard}>
-              Paste
-            </button>
-          </div>
-        </div>
-
         <div className="terminal-host-stack">
           {sessions.length === 0 ? (
             <div className="empty-terminal">
-              <p>New Session starts a real pwsh.exe terminal.</p>
-              <p>Each session keeps its own PTY and xterm.js instance.</p>
+              <p>Start a session to open a terminal.</p>
+              <button type="button" onClick={createDefaultSession}>
+                New session
+              </button>
             </div>
           ) : null}
           {sessions.map((session) => (
@@ -790,10 +841,13 @@ export function TerminalView({ theme, onToggleTheme }: TerminalViewProps) {
         disabled={sessions.length >= MAX_LIVE_SESSIONS}
         nextSessionNumber={sessionCounterRef.current}
         sessions={sessions}
+        theme={theme}
         onAgentOverride={setAgentOverride}
         onCloseSession={closeSession}
         onCreateSession={createSession}
+        onOpenAppearance={onOpenAppearance}
         onSelectSession={selectSession}
+        onToggleTheme={onToggleTheme}
       />
     </section>
   );
@@ -841,10 +895,12 @@ function createTerminal(
   sessionId: string,
   name: string,
   appearance: TerminalProfileAppearance | null,
+  theme: ThemeMode,
   canWrite: () => boolean,
 ) {
   let warnedReadonly = false;
   const terminal = new TerminalConstructor({
+    allowTransparency: true,
     cursorBlink: true,
     convertEol: true,
     fontFamily: formatTerminalFontFamily(appearance?.fontFamily),
@@ -852,7 +908,7 @@ function createTerminal(
     fontWeight: terminalFontWeight(appearance?.fontWeight),
     lineHeight: terminalLineHeight(appearance?.lineHeight),
     scrollback: 10_000,
-    theme: terminalTheme(appearance),
+    theme: terminalTheme(appearance, theme),
   });
 
   terminal.writeln(`WrapX M2 Session: ${name}`);
@@ -875,21 +931,28 @@ function createTerminal(
   return terminal;
 }
 
-function applyTerminalAppearance(terminal: Terminal, appearance: TerminalProfileAppearance) {
-  terminal.options.theme = terminalTheme(appearance);
-  terminal.options.fontFamily = formatTerminalFontFamily(appearance.fontFamily);
-  terminal.options.fontSize = terminalFontSize(appearance.fontSize);
-  terminal.options.fontWeight = terminalFontWeight(appearance.fontWeight);
-  terminal.options.lineHeight = terminalLineHeight(appearance.lineHeight);
+function applyTerminalAppearance(
+  terminal: Terminal,
+  appearance: TerminalProfileAppearance | null,
+  theme: ThemeMode,
+) {
+  terminal.options.theme = terminalTheme(appearance, theme);
+  terminal.options.fontFamily = formatTerminalFontFamily(appearance?.fontFamily);
+  terminal.options.fontSize = terminalFontSize(appearance?.fontSize);
+  terminal.options.fontWeight = terminalFontWeight(appearance?.fontWeight);
+  terminal.options.lineHeight = terminalLineHeight(appearance?.lineHeight);
 }
 
-function terminalTheme(appearance: TerminalProfileAppearance | null): TerminalColorTheme {
-  const theme = appearance?.theme ?? {};
+function terminalTheme(
+  appearance: TerminalProfileAppearance | null,
+  theme: ThemeMode,
+): TerminalColorTheme {
+  const profileTheme = appearance?.theme ?? {};
+  const appTheme = theme === "dark" ? DARK_TERMINAL_THEME : LIGHT_TERMINAL_THEME;
 
   return {
-    ...theme,
-    background: theme.background ?? "#05070a",
-    foreground: theme.foreground ?? "#f6f7fb",
+    ...profileTheme,
+    ...appTheme,
   };
 }
 

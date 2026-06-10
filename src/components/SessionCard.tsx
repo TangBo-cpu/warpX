@@ -1,8 +1,10 @@
+import { useEffect, useRef, useState } from "react";
 import type { AgentKind, Session } from "../types/session";
 import {
   AGENT_DISPLAY,
   STATUS_DISPLAY,
   formatSessionActivityAge,
+  getSessionAvatar,
   getSessionCwdLabel,
   getSessionStatusMessage,
 } from "../sessionDisplay";
@@ -15,6 +17,14 @@ type SessionCardProps = {
   onAgentOverride: (override?: AgentKind) => void;
 };
 
+const AGENT_OVERRIDE_OPTIONS: Array<{ value: AgentKind | "auto"; label: string }> = [
+  { value: "auto", label: "Auto" },
+  { value: "claude-code", label: "Claude Code" },
+  { value: "codex", label: "Codex" },
+  { value: "none", label: "PowerShell" },
+  { value: "unknown", label: "Unknown" },
+];
+
 export function SessionCard({
   session,
   active,
@@ -22,12 +32,34 @@ export function SessionCard({
   onClose,
   onAgentOverride,
 }: SessionCardProps) {
+  const [menuOpen, setMenuOpen] = useState(false);
+  const menuRef = useRef<HTMLSpanElement | null>(null);
   const agent = AGENT_DISPLAY[session.agentKind];
-  const autoAgent = AGENT_DISPLAY[session.autoAgentKind];
   const status = STATUS_DISPLAY[session.status];
+  const avatar = getSessionAvatar(session);
   const age = formatSessionActivityAge(session);
   const cwdLabel = getSessionCwdLabel(session.cwd);
   const message = getSessionStatusMessage(session);
+
+  useEffect(() => {
+    if (!menuOpen) {
+      return;
+    }
+
+    function closeOnOutsidePointer(event: PointerEvent) {
+      if (!menuRef.current?.contains(event.target as Node)) {
+        setMenuOpen(false);
+      }
+    }
+
+    document.addEventListener("pointerdown", closeOnOutsidePointer);
+    return () => document.removeEventListener("pointerdown", closeOnOutsidePointer);
+  }, [menuOpen]);
+
+  function chooseAgentOverride(value: AgentKind | "auto") {
+    onAgentOverride(value === "auto" ? undefined : value);
+    setMenuOpen(false);
+  }
 
   return (
     <article
@@ -42,59 +74,66 @@ export function SessionCard({
         }
       }}
     >
+      <span className={`session-avatar is-${avatar.key}`} title={avatar.label} aria-hidden="true">
+        <img alt="" src={avatar.imageUrl} />
+      </span>
+
       <span className="session-card-main">
         <span className="session-card-topline">
-          <span className={`session-agent-glyph is-${session.agentKind}`} aria-hidden="true">
-            {agent.glyph}
-          </span>
           <span className="session-name">{session.name}</span>
           <span className={`session-status is-${session.status}`}>{status.label}</span>
           {age ? <span className="session-age">{age}</span> : null}
         </span>
 
         <span className="session-card-meta">
+          <span title={session.cwd}>{cwdLabel}</span>
+          <span aria-hidden="true">·</span>
           <span>{agent.label}</span>
           <span aria-hidden="true">·</span>
-          <span title={session.cwd}>{cwdLabel}</span>
-          {session.agentKindOverride ? <span className="override-badge">override</span> : null}
+          <span title={message}>{message}</span>
         </span>
-
-        <span className="session-message" title={message}>
-          {message}
-        </span>
-
-        <label
-          className="agent-override"
-          onClick={(event) => event.stopPropagation()}
-          onKeyDown={(event) => event.stopPropagation()}
-        >
-          <span>Agent</span>
-          <select
-            value={session.agentKindOverride ?? "auto"}
-            onChange={(event) => {
-              const value = event.target.value as AgentKind | "auto";
-              onAgentOverride(value === "auto" ? undefined : value);
-            }}
-          >
-            <option value="auto">Auto ({autoAgent.label})</option>
-            <option value="claude-code">Claude Code</option>
-            <option value="codex">Codex</option>
-            <option value="unknown">Unknown</option>
-            <option value="none">None</option>
-          </select>
-        </label>
       </span>
-      <button
-        className="session-close"
-        title="Close session"
-        type="button"
-        onClick={(event) => {
-          event.stopPropagation();
-          onClose();
-        }}
+
+      <span
+        ref={menuRef}
+        className="session-card-menu"
+        onClick={(event) => event.stopPropagation()}
+        onKeyDown={(event) => event.stopPropagation()}
       >
-        ×
-      </button>
+        <button
+          aria-expanded={menuOpen}
+          aria-haspopup="menu"
+          aria-label={`Session actions for ${session.name}`}
+          className="session-menu-trigger"
+          title="Session actions"
+          type="button"
+          onClick={() => setMenuOpen((value) => !value)}
+        >
+          ⋯
+        </button>
+
+        {menuOpen ? (
+          <span className="session-menu-popover" role="menu">
+            <span className="session-menu-label">Agent</span>
+            {AGENT_OVERRIDE_OPTIONS.map((option) => (
+              <button
+                key={option.value}
+                className={
+                  (session.agentKindOverride ?? "auto") === option.value ? "is-selected" : undefined
+                }
+                role="menuitem"
+                type="button"
+                onClick={() => chooseAgentOverride(option.value)}
+              >
+                {option.label}
+              </button>
+            ))}
+            <button className="is-danger" role="menuitem" type="button" onClick={onClose}>
+              Close session
+            </button>
+          </span>
+        ) : null}
+      </span>
     </article>
   );
 }
