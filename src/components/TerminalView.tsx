@@ -59,7 +59,7 @@ type TerminalFontWeight = TerminalOptions["fontWeight"];
 
 const DEFAULT_CWD = "E:\\Code-All\\wrapx";
 const MAX_LIVE_SESSIONS = 8;
-const DEFAULT_TERMINAL_FONT_FAMILY = "Cascadia Mono";
+const DEFAULT_TERMINAL_FONT_FAMILY = "JetBrainsMono Nerd Font";
 const TERMINAL_FONT_FALLBACKS = [
   "JetBrainsMono NFM",
   "JetBrainsMono NF",
@@ -167,6 +167,7 @@ export function TerminalView({
   const activeSessionIdRef = useRef<string | null>(null);
   const terminalAppearanceRef = useRef<TerminalProfileAppearance | null>(null);
   const terminalThemeRef = useRef<TerminalColorTheme>(resolveTerminalThemeColors(appearance));
+  const terminalFontFamilyRef = useRef(appearance.terminalFontFamily);
   const hasBackgroundImageRef = useRef(hasBackgroundImage);
   const appCloseInProgressRef = useRef(false);
   const closedSessionIdsRef = useRef(new Set<string>());
@@ -205,10 +206,17 @@ export function TerminalView({
     const resolvedTerminalTheme = resolveTerminalThemeColors(appearance, terminalAppearance?.theme);
     terminalAppearanceRef.current = terminalAppearance;
     terminalThemeRef.current = resolvedTerminalTheme;
+    terminalFontFamilyRef.current = appearance.terminalFontFamily;
     hasBackgroundImageRef.current = hasBackgroundImage;
 
     terminalRuntimesRef.current.forEach(({ terminal }) => {
-      applyTerminalAppearance(terminal, terminalAppearance, resolvedTerminalTheme, hasBackgroundImage);
+      applyTerminalAppearance(
+        terminal,
+        terminalAppearance,
+        resolvedTerminalTheme,
+        appearance.terminalFontFamily,
+        hasBackgroundImage,
+      );
     });
   }, [appearance, hasBackgroundImage, terminalAppearance]);
 
@@ -464,6 +472,7 @@ export function TerminalView({
             name,
             terminalAppearanceRef.current,
             terminalThemeRef.current,
+            terminalFontFamilyRef.current,
             hasBackgroundImageRef.current,
             () => canWriteToSession(sessionId),
           );
@@ -1031,6 +1040,7 @@ function createTerminal(
   name: string,
   appearance: TerminalProfileAppearance | null,
   theme: TerminalColorTheme,
+  configuredFontFamily: string,
   hasBackgroundImage: boolean,
   canWrite: () => boolean,
 ) {
@@ -1039,7 +1049,7 @@ function createTerminal(
     allowTransparency: true,
     cursorBlink: true,
     convertEol: true,
-    fontFamily: formatTerminalFontFamily(appearance?.fontFamily),
+    fontFamily: formatTerminalFontFamily(configuredFontFamily, appearance?.fontFamily),
     fontSize: terminalFontSize(appearance?.fontSize),
     fontWeight: terminalFontWeight(appearance?.fontWeight),
     lineHeight: terminalLineHeight(appearance?.lineHeight),
@@ -1071,10 +1081,11 @@ function applyTerminalAppearance(
   terminal: Terminal,
   appearance: TerminalProfileAppearance | null,
   theme: TerminalColorTheme,
+  configuredFontFamily: string,
   hasBackgroundImage: boolean,
 ) {
   terminal.options.theme = terminalTheme(theme, hasBackgroundImage);
-  terminal.options.fontFamily = formatTerminalFontFamily(appearance?.fontFamily);
+  terminal.options.fontFamily = formatTerminalFontFamily(configuredFontFamily, appearance?.fontFamily);
   terminal.options.fontSize = terminalFontSize(appearance?.fontSize);
   terminal.options.fontWeight = terminalFontWeight(appearance?.fontWeight);
   terminal.options.lineHeight = terminalLineHeight(appearance?.lineHeight);
@@ -1123,8 +1134,8 @@ function terminalFontWeight(fontWeight?: string): TerminalFontWeight {
   return undefined;
 }
 
-function formatTerminalFontFamily(fontFamily?: string) {
-  const preferredFont = fontFamily?.trim() || DEFAULT_TERMINAL_FONT_FAMILY;
+function formatTerminalFontFamily(configuredFontFamily: string, profileFontFamily?: string) {
+  const preferredFont = configuredFontFamily.trim() || profileFontFamily?.trim() || DEFAULT_TERMINAL_FONT_FAMILY;
   const fontFamilies = preferredFont.includes(",")
     ? preferredFont.split(",").map((font) => font.trim()).filter(Boolean)
     : [preferredFont];

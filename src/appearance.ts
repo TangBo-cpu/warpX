@@ -54,8 +54,16 @@ export type TerminalThemeSettings = {
   terminalCustomTheme: TerminalColorTheme;
 };
 
+export type FontOption = {
+  value: string;
+  label: string;
+  description: string;
+};
+
 export type AppearanceSettings = TerminalThemeSettings & {
   preset: AppearancePreset;
+  appFontFamily: string;
+  terminalFontFamily: string;
   intensity: number;
   backgroundImagePath?: string;
   backgroundImageFit: BackgroundImageFit;
@@ -124,6 +132,60 @@ type PresetRendering = {
 };
 
 export const APPEARANCE_STORAGE_KEY = "wrapx-appearance";
+
+export const DEFAULT_APP_FONT_FAMILY = 'Inter, "Segoe UI Variable", "Segoe UI", "Microsoft YaHei UI", "PingFang SC", system-ui, sans-serif';
+export const DEFAULT_TERMINAL_FONT_FAMILY = "JetBrainsMono Nerd Font";
+
+export const APP_FONT_OPTIONS: FontOption[] = [
+  {
+    value: DEFAULT_APP_FONT_FAMILY,
+    label: "Modern UI",
+    description: "Inter + Segoe UI Variable + Microsoft YaHei UI fallback.",
+  },
+  {
+    value: '"Segoe UI Variable", "Segoe UI", "Microsoft YaHei UI", system-ui, sans-serif',
+    label: "Windows UI",
+    description: "Native Windows 11 style with Chinese-friendly fallback.",
+  },
+  {
+    value: 'Inter, "Microsoft YaHei UI", system-ui, sans-serif',
+    label: "Inter CN",
+    description: "Sharper Latin UI with Microsoft YaHei UI for Chinese text.",
+  },
+];
+
+export const TERMINAL_FONT_OPTIONS: FontOption[] = [
+  {
+    value: DEFAULT_TERMINAL_FONT_FAMILY,
+    label: "JetBrains Mono NF",
+    description: "Programmer-friendly terminal font with Nerd Font glyph support.",
+  },
+  {
+    value: "CaskaydiaCove Nerd Font",
+    label: "CaskaydiaCove NF",
+    description: "Cascadia-style terminal font with Nerd Font glyph support.",
+  },
+  {
+    value: "Cascadia Code",
+    label: "Cascadia Code",
+    description: "Microsoft's modern coding font.",
+  },
+  {
+    value: "Maple Mono NF CN",
+    label: "Maple Mono NF CN",
+    description: "Monospace font tuned for Chinese and English mixed text.",
+  },
+  {
+    value: "Sarasa Mono SC",
+    label: "Sarasa Mono SC",
+    description: "Chinese-friendly monospace fallback for terminal text.",
+  },
+  {
+    value: "",
+    label: "Windows Terminal profile",
+    description: "Follow the active Windows Terminal profile font when available.",
+  },
+];
 
 export const DEFAULT_TERMINAL_THEME_ID: TerminalThemeId = "windows-terminal";
 
@@ -284,6 +346,8 @@ export const TERMINAL_COLOR_FIELDS: Array<{
 
 export const DEFAULT_APPEARANCE_SETTINGS: AppearanceSettings = {
   preset: "ivory-glass",
+  appFontFamily: DEFAULT_APP_FONT_FAMILY,
+  terminalFontFamily: DEFAULT_TERMINAL_FONT_FAMILY,
   intensity: 0.45,
   backgroundImageFit: "cover",
   backgroundImageAlignment: "center",
@@ -569,6 +633,12 @@ export function saveAppearanceSettings(settings: AppearanceSettings) {
 export function normalizeAppearanceSettings(value: Partial<AppearanceSettings>): AppearanceSettings {
   return {
     preset: isAppearancePreset(value.preset) ? value.preset : DEFAULT_APPEARANCE_SETTINGS.preset,
+    appFontFamily: normalizeFontFamily(value.appFontFamily, DEFAULT_APPEARANCE_SETTINGS.appFontFamily),
+    terminalFontFamily: normalizeFontFamily(
+      value.terminalFontFamily,
+      DEFAULT_APPEARANCE_SETTINGS.terminalFontFamily,
+      true,
+    ),
     intensity: clamp01(value.intensity, DEFAULT_APPEARANCE_SETTINGS.intensity),
     backgroundImagePath: nonEmptyString(value.backgroundImagePath),
     backgroundImageFit: isBackgroundImageFit(value.backgroundImageFit)
@@ -706,6 +776,8 @@ export function resolveAppearanceCssVariables(
   const topbarMenuBlurPx = crispLightImage ? 0 : 16;
 
   return {
+    "--app-font-family": settings.appFontFamily,
+    "--terminal-font-family": terminalFontCssVariable(settings.terminalFontFamily),
     "--appearance-base-color": preset.baseColor,
     "--appearance-gradient": preset.gradient,
     "--appearance-vignette": preset.vignette,
@@ -824,6 +896,23 @@ function normalizeHexColor(value: unknown, fallback: string) {
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null && !Array.isArray(value);
+}
+
+function normalizeFontFamily(value: unknown, fallback: string, allowEmpty = false) {
+  if (typeof value !== "string") {
+    return fallback;
+  }
+
+  const fontFamily = value.trim();
+  if (!fontFamily) {
+    return allowEmpty ? "" : fallback;
+  }
+
+  return fontFamily;
+}
+
+function terminalFontCssVariable(fontFamily: string) {
+  return fontFamily || "var(--terminal-profile-font-family)";
 }
 
 function nonEmptyString(value: unknown) {
