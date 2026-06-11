@@ -786,11 +786,10 @@ button:focus-visible,
 }
 
 .sidebar-header {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) auto;
-  align-items: center;
-  gap: 8px;
+  display: flex;
   min-height: 40px;
+  align-items: center;
+  justify-content: flex-end;
   padding: 8px 10px;
 }
 
@@ -814,15 +813,6 @@ button:focus-visible,
 
 .sidebar-tab.is-active {
   color: #f2f4f8;
-}
-
-.sidebar-title {
-  overflow: hidden;
-  color: #f2f4f8;
-  font-size: 13px;
-  font-weight: 850;
-  text-overflow: ellipsis;
-  white-space: nowrap;
 }
 
 .sidebar-actions {

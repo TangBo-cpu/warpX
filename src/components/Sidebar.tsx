@@ -44,7 +44,6 @@ export function Sidebar({
   return (
     <aside className="sidebar">
       <div className="sidebar-header">
-        <strong className="sidebar-title">{sessions.length}/8 sessions</strong>
         <div className="sidebar-actions">
           <button
             aria-label="Open appearance settings"
