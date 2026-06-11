@@ -132,6 +132,7 @@ body {
   --terminal-shell-overlay-top: rgba(255, 255, 255, 0.62);
   --terminal-shell-overlay-bottom: rgba(248, 250, 252, 0.48);
   --terminal-shell-overlay: linear-gradient(180deg, var(--terminal-shell-overlay-top), var(--terminal-shell-overlay-bottom));
+  --terminal-background-scrim: rgba(0, 0, 0, 0.16);
   --terminal-shell-grid: rgba(17, 24, 39, 0.035);
   --terminal-scrollbar-thumb: rgba(100, 116, 139, 0.34);
   --terminal-scrollbar-thumb-hover: rgba(59, 130, 246, 0.44);
@@ -169,6 +170,7 @@ body {
   --terminal-shell-overlay-top: rgba(7, 10, 15, 0.58);
   --terminal-shell-overlay-bottom: rgba(5, 7, 11, 0.66);
   --terminal-shell-overlay: linear-gradient(180deg, var(--terminal-shell-overlay-top), var(--terminal-shell-overlay-bottom));
+  --terminal-background-scrim: rgba(0, 0, 0, 0.22);
   --terminal-shell-grid: rgba(255, 255, 255, 0.024);
   --terminal-scrollbar-thumb: rgba(192, 202, 245, 0.42);
   --terminal-scrollbar-thumb-hover: rgba(192, 202, 245, 0.68);
@@ -188,6 +190,11 @@ body {
   opacity: var(--appearance-image-opacity);
   filter: blur(var(--appearance-image-blur)) saturate(1.05) brightness(1.02);
   transform-origin: center;
+}
+
+.app-shell[data-has-background-image="true"] {
+  --terminal-shell-overlay: var(--terminal-background-scrim);
+  --terminal-shell-grid: transparent;
 }
 
 button {
@@ -501,6 +508,10 @@ button:focus-visible,
   grid-template-columns: minmax(0, 1fr);
 }
 
+.app-shell[data-has-background-image="true"] .workspace-card {
+  background: transparent;
+}
+
 .terminal-card {
   display: flex;
   min-width: 0;
@@ -509,6 +520,10 @@ button:focus-visible,
   overflow: hidden;
   background: transparent;
   backdrop-filter: blur(var(--appearance-surface-blur));
+}
+
+.app-shell[data-has-background-image="true"] .terminal-card {
+  backdrop-filter: none;
 }
 
 .sidebar-resizer {
@@ -717,6 +732,10 @@ button:focus-visible,
     var(--terminal-shell-overlay);
 }
 
+.app-shell[data-has-background-image="true"] .terminal-host-stack {
+  background: var(--terminal-background-scrim);
+}
+
 .terminal-host {
   display: none;
   width: 100%;
@@ -736,7 +755,12 @@ button:focus-visible,
 
 .terminal-host .xterm-viewport,
 .terminal-host .xterm-screen,
-.terminal-host .xterm-rows {
+.terminal-host .xterm-rows,
+.terminal-host .xterm-text-layer,
+.terminal-host .xterm-cursor-layer,
+.terminal-host .xterm-link-layer,
+.terminal-host .xterm-decoration-container,
+.terminal-host canvas {
   background-color: transparent !important;
 }
 

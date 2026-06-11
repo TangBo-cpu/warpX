@@ -174,6 +174,7 @@ type TerminalProfileAppearance = {
 type ThemeMode = "light" | "dark";
 
 type TerminalViewProps = {
+  hasBackgroundImage: boolean;
   theme: ThemeMode;
   onOpenAppearance: () => void;
   onSessionSummaryChange: (summary: ActiveSessionSummary | null) => void;
@@ -220,6 +221,7 @@ function clampSidebarWidth(width: number, maxWidth = SIDEBAR_MAX_WIDTH) {
 }
 
 export function TerminalView({
+  hasBackgroundImage,
   theme,
   onOpenAppearance,
   onSessionSummaryChange,
@@ -231,6 +233,7 @@ export function TerminalView({
   const activeSessionIdRef = useRef<string | null>(null);
   const terminalAppearanceRef = useRef<TerminalProfileAppearance | null>(null);
   const appThemeRef = useRef<ThemeMode>(theme);
+  const hasBackgroundImageRef = useRef(hasBackgroundImage);
   const appCloseInProgressRef = useRef(false);
   const closedSessionIdsRef = useRef(new Set<string>());
   const sessionCounterRef = useRef(1);
@@ -266,10 +269,11 @@ export function TerminalView({
 
   useEffect(() => {
     appThemeRef.current = theme;
+    hasBackgroundImageRef.current = hasBackgroundImage;
     terminalRuntimesRef.current.forEach(({ terminal }) => {
-      applyTerminalAppearance(terminal, terminalAppearanceRef.current, theme);
+      applyTerminalAppearance(terminal, terminalAppearanceRef.current, theme, hasBackgroundImage);
     });
-  }, [theme]);
+  }, [hasBackgroundImage, theme]);
 
   useEffect(() => {
     let cancelled = false;
@@ -294,7 +298,12 @@ export function TerminalView({
     }
 
     terminalRuntimesRef.current.forEach(({ terminal }) => {
-      applyTerminalAppearance(terminal, terminalAppearance, appThemeRef.current);
+      applyTerminalAppearance(
+        terminal,
+        terminalAppearance,
+        appThemeRef.current,
+        hasBackgroundImageRef.current,
+      );
     });
 
     const sessionId = activeSessionIdRef.current;
@@ -538,6 +547,7 @@ export function TerminalView({
             name,
             terminalAppearanceRef.current,
             appThemeRef.current,
+            hasBackgroundImageRef.current,
             () => canWriteToSession(sessionId),
           );
           const fitAddon = new FitAddon();
@@ -1104,6 +1114,7 @@ function createTerminal(
   name: string,
   appearance: TerminalProfileAppearance | null,
   theme: ThemeMode,
+  hasBackgroundImage: boolean,
   canWrite: () => boolean,
 ) {
   let warnedReadonly = false;
@@ -1116,7 +1127,7 @@ function createTerminal(
     fontWeight: terminalFontWeight(appearance?.fontWeight),
     lineHeight: terminalLineHeight(appearance?.lineHeight),
     scrollback: 10_000,
-    theme: terminalTheme(appearance, theme),
+    theme: terminalTheme(appearance, theme, hasBackgroundImage),
   });
 
   terminal.writeln(`WrapX M2 Session: ${name}`);
@@ -1143,8 +1154,9 @@ function applyTerminalAppearance(
   terminal: Terminal,
   appearance: TerminalProfileAppearance | null,
   theme: ThemeMode,
+  hasBackgroundImage: boolean,
 ) {
-  terminal.options.theme = terminalTheme(appearance, theme);
+  terminal.options.theme = terminalTheme(appearance, theme, hasBackgroundImage);
   terminal.options.fontFamily = formatTerminalFontFamily(appearance?.fontFamily);
   terminal.options.fontSize = terminalFontSize(appearance?.fontSize);
   terminal.options.fontWeight = terminalFontWeight(appearance?.fontWeight);
@@ -1154,13 +1166,19 @@ function applyTerminalAppearance(
 function terminalTheme(
   appearance: TerminalProfileAppearance | null,
   theme: ThemeMode,
+  hasBackgroundImage: boolean,
 ): TerminalColorTheme {
   const profileTheme = appearance?.theme ?? {};
-  const appTheme = theme === "dark" ? DARK_TERMINAL_THEME : LIGHT_TERMINAL_THEME;
+  const appTheme = hasBackgroundImage
+    ? DARK_TERMINAL_THEME
+    : theme === "dark"
+      ? DARK_TERMINAL_THEME
+      : LIGHT_TERMINAL_THEME;
 
   return {
     ...profileTheme,
     ...appTheme,
+    ...(hasBackgroundImage ? { background: "rgba(0, 0, 0, 0)" } : {}),
   };
 }
 

@@ -63,6 +63,7 @@ export default function App() {
   const backgroundImageUrl = appearance.backgroundImagePath
     ? convertFileSrc(appearance.backgroundImagePath)
     : undefined;
+  const hasBackgroundImage = Boolean(backgroundImageUrl);
   const appearanceStyle = useMemo(
     () => resolveAppearanceCssVariables(appearance, backgroundImageUrl) as CSSProperties,
     [appearance, backgroundImageUrl],
@@ -128,8 +129,14 @@ export default function App() {
   }
 
   return (
-    <main className="app-shell" data-theme={theme} style={appearanceStyle}>
+    <main
+      className="app-shell"
+      data-has-background-image={hasBackgroundImage ? "true" : "false"}
+      data-theme={theme}
+      style={appearanceStyle}
+    >
       <TerminalView
+        hasBackgroundImage={hasBackgroundImage}
         theme={theme}
         onOpenAppearance={() => setAppearancePanelOpen(true)}
         onSessionSummaryChange={setActiveSessionSummary}

@@ -390,10 +390,7 @@ export function resolveAppearanceCssVariables(
 ): Record<string, string> {
   const preset = PRESET_RENDERING[settings.preset];
   const intensity = clamp01(settings.intensity);
-  const rawBackgroundImageOpacity = backgroundImageUrl ? clamp01(settings.backgroundImageOpacity) : 0;
-  const backgroundImageOpacity = backgroundImageUrl
-    ? resolveBackgroundImageOpacity(settings.preset, rawBackgroundImageOpacity)
-    : 0;
+  const backgroundImageOpacity = backgroundImageUrl ? clamp01(settings.backgroundImageOpacity) : 0;
   const blurPx = settings.acrylicEnabled ? lerp(preset.blurMin, preset.blurMax, intensity) : 0;
   const imageBlurPx = 0;
   const crispLightImage = Boolean(backgroundImageUrl && settings.preset === "ivory-glass");
@@ -578,14 +575,6 @@ function lerpPair([start, end]: [number, number], amount: number) {
 
 function softenSurfaceAlpha(alpha: number, backgroundImageOpacity: number, amount: number, minimum: number) {
   return Math.max(minimum, alpha - backgroundImageOpacity * amount);
-}
-
-function resolveBackgroundImageOpacity(preset: AppearancePreset, opacity: number) {
-  if (preset === "ivory-glass") {
-    return 1 - (1 - opacity) ** 1.8;
-  }
-
-  return opacity;
 }
 
 function rgba([red, green, blue]: Rgb, alpha: number) {
