@@ -1045,9 +1045,38 @@ button:focus-visible,
 }
 
 .appearance-preview-terminal {
+  --preview-terminal-bg: var(--terminal-buffer-bg);
+  --preview-terminal-fg: var(--text-inverse);
+  --preview-terminal-accent: var(--accent-cool);
+
+  position: relative;
+  overflow: hidden;
   background:
-    linear-gradient(var(--terminal-buffer-grid) 1px, transparent 1px) 0 0 / 100% 18px,
-    var(--terminal-buffer-bg);
+    linear-gradient(rgba(255, 255, 255, 0.08) 1px, transparent 1px) 0 0 / 100% 18px,
+    var(--preview-terminal-bg);
+}
+
+.appearance-preview-terminal::before,
+.appearance-preview-terminal::after {
+  position: absolute;
+  left: 12px;
+  right: 12px;
+  height: 8px;
+  border-radius: 999px;
+  content: "";
+}
+
+.appearance-preview-terminal::before {
+  top: 18px;
+  background: linear-gradient(90deg, var(--preview-terminal-fg) 0 38%, transparent 38% 46%, var(--preview-terminal-accent) 46% 72%, transparent 72%);
+  opacity: 0.9;
+}
+
+.appearance-preview-terminal::after {
+  top: 40px;
+  width: 52%;
+  background: var(--preview-terminal-fg);
+  opacity: 0.58;
 }
 
 .appearance-preview-sidebar {
@@ -1130,6 +1159,61 @@ button:focus-visible,
   border-radius: 8px;
   padding: 8px 10px;
   color: var(--text-primary);
+  background: var(--field-bg);
+}
+
+.terminal-palette-preview {
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  gap: 6px;
+  border: 1px solid var(--border-subtle);
+  border-radius: 12px;
+  padding: 10px;
+  background: color-mix(in srgb, var(--surface-elevated) 72%, transparent);
+}
+
+.terminal-palette-preview span {
+  display: grid;
+  min-width: 0;
+  gap: 4px;
+  color: var(--text-muted);
+  font-size: 10px;
+}
+
+.terminal-palette-preview span span {
+  height: 18px;
+  border: 1px solid rgba(255, 255, 255, 0.22);
+  border-radius: 5px;
+  box-shadow: inset 0 0 0 1px rgba(0, 0, 0, 0.14);
+}
+
+.terminal-color-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+  border: 1px solid var(--border-subtle);
+  border-radius: 12px;
+  padding: 10px;
+  background: color-mix(in srgb, var(--surface-elevated) 72%, transparent);
+}
+
+.terminal-color-field {
+  display: flex;
+  min-width: 0;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  color: var(--text-secondary);
+  font-size: 12px;
+}
+
+.terminal-color-field input {
+  width: 38px;
+  height: 28px;
+  flex: 0 0 auto;
+  border: 1px solid var(--field-border);
+  border-radius: 7px;
+  padding: 2px;
   background: var(--field-bg);
 }
 

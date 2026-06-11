@@ -68,7 +68,6 @@ export default function App() {
     () => resolveAppearanceCssVariables(appearance, backgroundImageUrl) as CSSProperties,
     [appearance, backgroundImageUrl],
   );
-
   useEffect(() => {
     const title = activeSessionSummary
       ? `WrapX — ${activeSessionSummary.name} · ${activeSessionSummary.statusLabel} · ${activeSessionSummary.cwdLabel}`
@@ -136,6 +135,7 @@ export default function App() {
       style={appearanceStyle}
     >
       <TerminalView
+        appearance={appearance}
         hasBackgroundImage={hasBackgroundImage}
         theme={theme}
         onOpenAppearance={() => setAppearancePanelOpen(true)}
