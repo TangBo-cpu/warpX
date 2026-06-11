@@ -4,18 +4,22 @@ import type { MouseEvent } from "react";
 type ThemeMode = "light" | "dark";
 
 type WindowTitlebarProps = {
+  isSidebarCollapsed: boolean;
   newSessionDisabled: boolean;
   theme: ThemeMode;
   onNewSession: () => void;
   onOpenAppearance: () => void;
+  onToggleSidebar: () => void;
   onToggleTheme: () => void;
 };
 
 export function WindowTitlebar({
+  isSidebarCollapsed,
   newSessionDisabled,
   theme,
   onNewSession,
   onOpenAppearance,
+  onToggleSidebar,
   onToggleTheme,
 }: WindowTitlebarProps) {
   return (
@@ -59,6 +63,18 @@ export function WindowTitlebar({
       </div>
 
       <div className="window-titlebar-controls">
+        <button
+          aria-label={isSidebarCollapsed ? "Show sessions sidebar" : "Hide sessions sidebar"}
+          className="window-control sidebar-toggle"
+          title={isSidebarCollapsed ? "Show sidebar" : "Hide sidebar"}
+          type="button"
+          onClick={(event) => runTitlebarAction(event, onToggleSidebar)}
+        >
+          <span
+            aria-hidden="true"
+            className={`sidebar-toggle-icon${isSidebarCollapsed ? " is-show" : " is-hide"}`}
+          />
+        </button>
         <button aria-label="Minimize" className="window-control" type="button" onClick={minimizeWindow}>
           −
         </button>
