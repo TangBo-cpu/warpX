@@ -11,7 +11,6 @@ import {
 } from "./appearance";
 import { AppearancePanel } from "./components/AppearancePanel";
 import { TerminalView } from "./components/TerminalView";
-import { WindowTitlebar } from "./components/WindowTitlebar";
 import type { ActiveSessionSummary } from "./sessionDisplay";
 
 type ThemeMode = "light" | "dark";
@@ -130,7 +129,6 @@ export default function App() {
 
   return (
     <main className="app-shell" data-theme={theme} style={appearanceStyle}>
-      <WindowTitlebar />
       <TerminalView
         theme={theme}
         onOpenAppearance={() => setAppearancePanelOpen(true)}
