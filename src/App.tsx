@@ -63,11 +63,11 @@ export default function App() {
   const backgroundImageUrl = appearance.backgroundImagePath
     ? convertFileSrc(appearance.backgroundImagePath)
     : undefined;
+  const hasBackgroundImage = Boolean(backgroundImageUrl);
   const appearanceStyle = useMemo(
     () => resolveAppearanceCssVariables(appearance, backgroundImageUrl) as CSSProperties,
     [appearance, backgroundImageUrl],
   );
-
   useEffect(() => {
     const title = activeSessionSummary
       ? `WrapX — ${activeSessionSummary.name} · ${activeSessionSummary.statusLabel} · ${activeSessionSummary.cwdLabel}`
@@ -128,8 +128,15 @@ export default function App() {
   }
 
   return (
-    <main className="app-shell" data-theme={theme} style={appearanceStyle}>
+    <main
+      className="app-shell"
+      data-has-background-image={hasBackgroundImage ? "true" : "false"}
+      data-theme={theme}
+      style={appearanceStyle}
+    >
       <TerminalView
+        appearance={appearance}
+        hasBackgroundImage={hasBackgroundImage}
         theme={theme}
         onOpenAppearance={() => setAppearancePanelOpen(true)}
         onSessionSummaryChange={setActiveSessionSummary}

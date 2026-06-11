@@ -17,17 +17,61 @@ export type BackgroundImageAlignment =
   | "bottom-left"
   | "bottom-right";
 
-export type AppearanceSettings = {
+export type TerminalThemePresetId =
+  | "tokyo-night"
+  | "campbell"
+  | "one-half-dark"
+  | "solarized-light";
+
+export type TerminalThemeId = "windows-terminal" | TerminalThemePresetId | "custom";
+
+export type TerminalColorKey =
+  | "background"
+  | "foreground"
+  | "cursor"
+  | "selectionBackground"
+  | "black"
+  | "red"
+  | "green"
+  | "yellow"
+  | "blue"
+  | "magenta"
+  | "cyan"
+  | "white"
+  | "brightBlack"
+  | "brightRed"
+  | "brightGreen"
+  | "brightYellow"
+  | "brightBlue"
+  | "brightMagenta"
+  | "brightCyan"
+  | "brightWhite";
+
+export type TerminalColorTheme = Partial<Record<TerminalColorKey, string>>;
+
+export type TerminalThemeSettings = {
+  terminalThemeId: TerminalThemeId;
+  terminalCustomTheme: TerminalColorTheme;
+};
+
+export type AppearanceSettings = TerminalThemeSettings & {
   preset: AppearancePreset;
   intensity: number;
   backgroundImagePath?: string;
   backgroundImageFit: BackgroundImageFit;
   backgroundImageAlignment: BackgroundImageAlignment;
   backgroundImageOpacity: number;
+  terminalBackgroundScrimOpacity: number;
   acrylicEnabled: boolean;
 };
 
 type Rgb = [number, number, number];
+
+type TerminalThemePreset = {
+  label: string;
+  description: string;
+  colors: Required<TerminalColorTheme>;
+};
 
 type PresetRendering = {
   baseColor: string;
@@ -81,12 +125,172 @@ type PresetRendering = {
 
 export const APPEARANCE_STORAGE_KEY = "wrapx-appearance";
 
+export const DEFAULT_TERMINAL_THEME_ID: TerminalThemeId = "windows-terminal";
+
+export const TERMINAL_THEME_PRESETS: Record<TerminalThemePresetId, TerminalThemePreset> = {
+  "tokyo-night": {
+    label: "Tokyo Night",
+    description: "Deep blue-purple terminal palette with bright readable accents.",
+    colors: {
+      background: "#1a1b26",
+      foreground: "#c0caf5",
+      cursor: "#c0caf5",
+      selectionBackground: "#33467c",
+      black: "#15161e",
+      red: "#f7768e",
+      green: "#9ece6a",
+      yellow: "#e0af68",
+      blue: "#7aa2f7",
+      magenta: "#bb9af7",
+      cyan: "#7dcfff",
+      white: "#a9b1d6",
+      brightBlack: "#414868",
+      brightRed: "#f7768e",
+      brightGreen: "#9ece6a",
+      brightYellow: "#e0af68",
+      brightBlue: "#7aa2f7",
+      brightMagenta: "#bb9af7",
+      brightCyan: "#7dcfff",
+      brightWhite: "#c0caf5",
+    },
+  },
+  campbell: {
+    label: "Campbell",
+    description: "Windows Terminal classic dark color scheme.",
+    colors: {
+      background: "#0c0c0c",
+      foreground: "#cccccc",
+      cursor: "#ffffff",
+      selectionBackground: "#3a3d41",
+      black: "#0c0c0c",
+      red: "#c50f1f",
+      green: "#13a10e",
+      yellow: "#c19c00",
+      blue: "#0037da",
+      magenta: "#881798",
+      cyan: "#3a96dd",
+      white: "#cccccc",
+      brightBlack: "#767676",
+      brightRed: "#e74856",
+      brightGreen: "#16c60c",
+      brightYellow: "#f9f1a5",
+      brightBlue: "#3b78ff",
+      brightMagenta: "#b4009e",
+      brightCyan: "#61d6d6",
+      brightWhite: "#f2f2f2",
+    },
+  },
+  "one-half-dark": {
+    label: "One Half Dark",
+    description: "Balanced dark palette inspired by One Half Dark.",
+    colors: {
+      background: "#282c34",
+      foreground: "#dcdfe4",
+      cursor: "#a3b3cc",
+      selectionBackground: "#474e5d",
+      black: "#282c34",
+      red: "#e06c75",
+      green: "#98c379",
+      yellow: "#e5c07b",
+      blue: "#61afef",
+      magenta: "#c678dd",
+      cyan: "#56b6c2",
+      white: "#dcdfe4",
+      brightBlack: "#5a6374",
+      brightRed: "#e06c75",
+      brightGreen: "#98c379",
+      brightYellow: "#e5c07b",
+      brightBlue: "#61afef",
+      brightMagenta: "#c678dd",
+      brightCyan: "#56b6c2",
+      brightWhite: "#ffffff",
+    },
+  },
+  "solarized-light": {
+    label: "Solarized Light",
+    description: "Low-contrast light terminal palette.",
+    colors: {
+      background: "#fdf6e3",
+      foreground: "#657b83",
+      cursor: "#586e75",
+      selectionBackground: "#eee8d5",
+      black: "#073642",
+      red: "#dc322f",
+      green: "#859900",
+      yellow: "#b58900",
+      blue: "#268bd2",
+      magenta: "#d33682",
+      cyan: "#2aa198",
+      white: "#eee8d5",
+      brightBlack: "#002b36",
+      brightRed: "#cb4b16",
+      brightGreen: "#586e75",
+      brightYellow: "#657b83",
+      brightBlue: "#839496",
+      brightMagenta: "#6c71c4",
+      brightCyan: "#93a1a1",
+      brightWhite: "#fdf6e3",
+    },
+  },
+};
+
+export const TERMINAL_THEME_OPTIONS: Array<{
+  value: TerminalThemeId;
+  label: string;
+  description: string;
+}> = [
+  {
+    value: "windows-terminal",
+    label: "Windows Terminal",
+    description: "Use your active Windows Terminal profile color scheme when available.",
+  },
+  ...Object.entries(TERMINAL_THEME_PRESETS).map(([value, preset]) => ({
+    value: value as TerminalThemePresetId,
+    label: preset.label,
+    description: preset.description,
+  })),
+  {
+    value: "custom",
+    label: "Custom",
+    description: "Use the custom terminal colors below.",
+  },
+];
+
+export const TERMINAL_COLOR_FIELDS: Array<{
+  key: TerminalColorKey;
+  label: string;
+}> = [
+  { key: "background", label: "背景" },
+  { key: "foreground", label: "前景" },
+  { key: "cursor", label: "光标" },
+  { key: "selectionBackground", label: "选区" },
+  { key: "black", label: "黑" },
+  { key: "red", label: "红" },
+  { key: "green", label: "绿" },
+  { key: "yellow", label: "黄" },
+  { key: "blue", label: "蓝" },
+  { key: "magenta", label: "紫" },
+  { key: "cyan", label: "青" },
+  { key: "white", label: "白" },
+  { key: "brightBlack", label: "亮黑" },
+  { key: "brightRed", label: "亮红" },
+  { key: "brightGreen", label: "亮绿" },
+  { key: "brightYellow", label: "亮黄" },
+  { key: "brightBlue", label: "亮蓝" },
+  { key: "brightMagenta", label: "亮紫" },
+  { key: "brightCyan", label: "亮青" },
+  { key: "brightWhite", label: "亮白" },
+];
+
 export const DEFAULT_APPEARANCE_SETTINGS: AppearanceSettings = {
   preset: "ivory-glass",
   intensity: 0.45,
   backgroundImageFit: "cover",
   backgroundImageAlignment: "center",
   backgroundImageOpacity: 0.6,
+  terminalBackgroundScrimOpacity: 0.18,
+  terminalThemeId: DEFAULT_TERMINAL_THEME_ID,
+  terminalCustomTheme: TERMINAL_THEME_PRESETS["tokyo-night"].colors,
   acrylicEnabled: true,
 };
 
@@ -377,11 +581,47 @@ export function normalizeAppearanceSettings(value: Partial<AppearanceSettings>):
       value.backgroundImageOpacity,
       DEFAULT_APPEARANCE_SETTINGS.backgroundImageOpacity,
     ),
+    terminalBackgroundScrimOpacity: clamp01(
+      value.terminalBackgroundScrimOpacity,
+      DEFAULT_APPEARANCE_SETTINGS.terminalBackgroundScrimOpacity,
+    ),
+    terminalThemeId: isTerminalThemeId(value.terminalThemeId)
+      ? value.terminalThemeId
+      : DEFAULT_APPEARANCE_SETTINGS.terminalThemeId,
+    terminalCustomTheme: normalizeTerminalCustomTheme(value.terminalCustomTheme),
     acrylicEnabled:
       typeof value.acrylicEnabled === "boolean"
         ? value.acrylicEnabled
         : DEFAULT_APPEARANCE_SETTINGS.acrylicEnabled,
   };
+}
+
+export function resolveTerminalThemeColors(
+  settings: TerminalThemeSettings,
+  windowsTerminalTheme?: TerminalColorTheme | null,
+): TerminalColorTheme {
+  if (settings.terminalThemeId === "custom") {
+    return settings.terminalCustomTheme;
+  }
+
+  if (settings.terminalThemeId === "windows-terminal") {
+    return {
+      ...TERMINAL_THEME_PRESETS["tokyo-night"].colors,
+      ...(hasTerminalThemeColors(windowsTerminalTheme) ? windowsTerminalTheme : {}),
+    };
+  }
+
+  return TERMINAL_THEME_PRESETS[settings.terminalThemeId].colors;
+}
+
+export function normalizeTerminalCustomTheme(value: unknown): TerminalColorTheme {
+  const themeValue = isRecord(value) ? value : {};
+  return Object.fromEntries(
+    TERMINAL_COLOR_FIELDS.map(({ key }) => [
+      key,
+      normalizeHexColor(themeValue[key], TERMINAL_THEME_PRESETS["tokyo-night"].colors[key]),
+    ]),
+  ) as TerminalColorTheme;
 }
 
 export function resolveAppearanceCssVariables(
@@ -390,10 +630,8 @@ export function resolveAppearanceCssVariables(
 ): Record<string, string> {
   const preset = PRESET_RENDERING[settings.preset];
   const intensity = clamp01(settings.intensity);
-  const rawBackgroundImageOpacity = backgroundImageUrl ? clamp01(settings.backgroundImageOpacity) : 0;
-  const backgroundImageOpacity = backgroundImageUrl
-    ? resolveBackgroundImageOpacity(settings.preset, rawBackgroundImageOpacity)
-    : 0;
+  const backgroundImageOpacity = backgroundImageUrl ? clamp01(settings.backgroundImageOpacity) : 0;
+  const terminalBackgroundScrimOpacity = clamp01(settings.terminalBackgroundScrimOpacity);
   const blurPx = settings.acrylicEnabled ? lerp(preset.blurMin, preset.blurMax, intensity) : 0;
   const imageBlurPx = 0;
   const crispLightImage = Boolean(backgroundImageUrl && settings.preset === "ivory-glass");
@@ -483,6 +721,7 @@ export function resolveAppearanceCssVariables(
     "--appearance-surface-reveal": String(backgroundImageOpacity),
     "--terminal-shell-overlay-top": rgba(preset.terminalPane, terminalShellOverlayTopAlpha),
     "--terminal-shell-overlay-bottom": rgba(preset.terminalPane, terminalShellOverlayBottomAlpha),
+    "--terminal-background-scrim": rgba([0, 0, 0], terminalBackgroundScrimOpacity),
     "--app-background": "var(--appearance-vignette), var(--appearance-gradient), var(--appearance-base-color)",
     "--surface-app": preset.baseColor,
     "--surface-frame": rgba(preset.frame, frameAlpha),
@@ -558,6 +797,35 @@ function isBackgroundImageAlignment(value: unknown): value is BackgroundImageAli
   );
 }
 
+function isTerminalThemeId(value: unknown): value is TerminalThemeId {
+  return typeof value === "string" && TERMINAL_THEME_OPTIONS.some((option) => option.value === value);
+}
+
+function hasTerminalThemeColors(value: unknown): value is TerminalColorTheme {
+  return isRecord(value) && TERMINAL_COLOR_FIELDS.some(({ key }) => typeof value[key] === "string");
+}
+
+function normalizeHexColor(value: unknown, fallback: string) {
+  if (typeof value !== "string") {
+    return fallback;
+  }
+
+  const color = value.trim();
+  if (/^#[\da-f]{6}$/i.test(color)) {
+    return color;
+  }
+
+  if (/^#[\da-f]{3}$/i.test(color)) {
+    return `#${color[1]}${color[1]}${color[2]}${color[2]}${color[3]}${color[3]}`;
+  }
+
+  return fallback;
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null && !Array.isArray(value);
+}
+
 function nonEmptyString(value: unknown) {
   return typeof value === "string" && value.trim() ? value : undefined;
 }
@@ -578,14 +846,6 @@ function lerpPair([start, end]: [number, number], amount: number) {
 
 function softenSurfaceAlpha(alpha: number, backgroundImageOpacity: number, amount: number, minimum: number) {
   return Math.max(minimum, alpha - backgroundImageOpacity * amount);
-}
-
-function resolveBackgroundImageOpacity(preset: AppearancePreset, opacity: number) {
-  if (preset === "ivory-glass") {
-    return 1 - (1 - opacity) ** 1.8;
-  }
-
-  return opacity;
 }
 
 function rgba([red, green, blue]: Rgb, alpha: number) {

@@ -1,15 +1,20 @@
-import { useRef, type ChangeEvent, type MouseEvent, type ReactNode } from "react";
+import { useRef, type CSSProperties, type ChangeEvent, type MouseEvent, type ReactNode } from "react";
 import type {
   AppearanceSettings,
   AppearancePreset,
   BackgroundImageAlignment,
   BackgroundImageFit,
+  TerminalColorKey,
+  TerminalThemeId,
 } from "../appearance";
 import {
   APPEARANCE_PRESET_OPTIONS,
   BACKGROUND_IMAGE_ALIGNMENT_OPTIONS,
   BACKGROUND_IMAGE_FIT_OPTIONS,
   DEFAULT_APPEARANCE_SETTINGS,
+  TERMINAL_COLOR_FIELDS,
+  TERMINAL_THEME_OPTIONS,
+  resolveTerminalThemeColors,
 } from "../appearance";
 
 type AppearancePanelProps = {
@@ -39,6 +44,7 @@ export function AppearancePanel({
   onReset,
 }: AppearancePanelProps) {
   const fileInputRef = useRef<HTMLInputElement | null>(null);
+  const terminalPreviewTheme = resolveTerminalThemeColors(settings);
 
   return (
     <div className="appearance-panel-backdrop" role="presentation" onMouseDown={closeOnBackdrop}>
@@ -61,7 +67,16 @@ export function AppearancePanel({
         <div className="appearance-preview" aria-hidden="true">
           <div className="appearance-preview-titlebar" />
           <div className="appearance-preview-body">
-            <div className="appearance-preview-terminal" />
+            <div
+              className="appearance-preview-terminal"
+              style={
+                {
+                  "--preview-terminal-bg": terminalPreviewTheme.background,
+                  "--preview-terminal-fg": terminalPreviewTheme.foreground,
+                  "--preview-terminal-accent": terminalPreviewTheme.blue,
+                } as CSSProperties
+              }
+            />
             <div className="appearance-preview-sidebar">
               <span />
               <span />
@@ -89,6 +104,52 @@ export function AppearancePanel({
               ))}
             </select>
           </SettingRow>
+        </div>
+
+        <div className="appearance-section">
+          <h2>终端主题</h2>
+          <SettingRow
+            title="终端配色方案"
+            description="只控制 xterm 的前景、背景、光标、选区和 ANSI 颜色，不再跟随 WrapX 外壳主题切换。"
+            onReset={() => onChange({ terminalThemeId: DEFAULT_APPEARANCE_SETTINGS.terminalThemeId })}
+          >
+            <select
+              className="appearance-control"
+              value={settings.terminalThemeId}
+              onChange={(event) => onChange({ terminalThemeId: event.target.value as TerminalThemeId })}
+            >
+              {TERMINAL_THEME_OPTIONS.map((option) => (
+                <option key={option.value} value={option.value}>
+                  {option.label}
+                </option>
+              ))}
+            </select>
+          </SettingRow>
+
+          <div className="terminal-palette-preview" aria-label="Terminal palette preview">
+            {TERMINAL_COLOR_FIELDS.map(({ key, label }) => (
+              <span key={key} title={`${label}: ${terminalPreviewTheme[key]}`}>
+                <span style={{ backgroundColor: terminalPreviewTheme[key] }} />
+                {label}
+              </span>
+            ))}
+          </div>
+
+          {settings.terminalThemeId === "custom" ? (
+            <div className="terminal-color-grid">
+              {TERMINAL_COLOR_FIELDS.map(({ key, label }) => (
+                <label key={key} className="terminal-color-field">
+                  <span>{label}</span>
+                  <input
+                    aria-label={`Terminal ${label}`}
+                    type="color"
+                    value={settings.terminalCustomTheme[key] ?? DEFAULT_APPEARANCE_SETTINGS.terminalCustomTheme[key]}
+                    onChange={(event) => updateTerminalCustomColor(key, event.target.value)}
+                  />
+                </label>
+              ))}
+            </div>
+          ) : null}
         </div>
 
         <div className="appearance-section">
@@ -164,6 +225,19 @@ export function AppearancePanel({
               onChange={(backgroundImageOpacity) => onChange({ backgroundImageOpacity })}
             />
           </SettingRow>
+
+          <SettingRow
+            title="终端可读性遮罩"
+            description="只控制背景图模式下 terminal 区域的单层 scrim，不改变终端配色方案。"
+            onReset={() =>
+              onChange({ terminalBackgroundScrimOpacity: DEFAULT_APPEARANCE_SETTINGS.terminalBackgroundScrimOpacity })
+            }
+          >
+            <SliderControl
+              value={settings.terminalBackgroundScrimOpacity}
+              onChange={(terminalBackgroundScrimOpacity) => onChange({ terminalBackgroundScrimOpacity })}
+            />
+          </SettingRow>
         </div>
 
         <div className="appearance-section">
@@ -202,6 +276,15 @@ export function AppearancePanel({
       </section>
     </div>
   );
+
+  function updateTerminalCustomColor(key: TerminalColorKey, value: string) {
+    onChange({
+      terminalCustomTheme: {
+        ...settings.terminalCustomTheme,
+        [key]: value,
+      },
+    });
+  }
 
   function closeOnBackdrop(event: MouseEvent<HTMLDivElement>) {
     if (event.target === event.currentTarget) {
