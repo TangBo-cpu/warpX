@@ -168,6 +168,7 @@ export function TerminalView({
   const terminalAppearanceRef = useRef<TerminalProfileAppearance | null>(null);
   const terminalThemeRef = useRef<TerminalColorTheme>(resolveTerminalThemeColors(appearance));
   const terminalFontFamilyRef = useRef(appearance.terminalFontFamily);
+  const terminalFontWeightRef = useRef(appearance.terminalFontWeight);
   const hasBackgroundImageRef = useRef(hasBackgroundImage);
   const appCloseInProgressRef = useRef(false);
   const closedSessionIdsRef = useRef(new Set<string>());
@@ -207,6 +208,7 @@ export function TerminalView({
     terminalAppearanceRef.current = terminalAppearance;
     terminalThemeRef.current = resolvedTerminalTheme;
     terminalFontFamilyRef.current = appearance.terminalFontFamily;
+    terminalFontWeightRef.current = appearance.terminalFontWeight;
     hasBackgroundImageRef.current = hasBackgroundImage;
 
     terminalRuntimesRef.current.forEach(({ terminal }) => {
@@ -215,6 +217,7 @@ export function TerminalView({
         terminalAppearance,
         resolvedTerminalTheme,
         appearance.terminalFontFamily,
+        appearance.terminalFontWeight,
         hasBackgroundImage,
       );
     });
@@ -473,6 +476,7 @@ export function TerminalView({
             terminalAppearanceRef.current,
             terminalThemeRef.current,
             terminalFontFamilyRef.current,
+            terminalFontWeightRef.current,
             hasBackgroundImageRef.current,
             () => canWriteToSession(sessionId),
           );
@@ -1041,6 +1045,7 @@ function createTerminal(
   appearance: TerminalProfileAppearance | null,
   theme: TerminalColorTheme,
   configuredFontFamily: string,
+  configuredFontWeight: string,
   hasBackgroundImage: boolean,
   canWrite: () => boolean,
 ) {
@@ -1051,7 +1056,7 @@ function createTerminal(
     convertEol: true,
     fontFamily: formatTerminalFontFamily(configuredFontFamily, appearance?.fontFamily),
     fontSize: terminalFontSize(appearance?.fontSize),
-    fontWeight: terminalFontWeight(appearance?.fontWeight),
+    fontWeight: terminalFontWeight(configuredFontWeight, appearance?.fontWeight),
     lineHeight: terminalLineHeight(appearance?.lineHeight),
     scrollback: 10_000,
     theme: terminalTheme(theme, hasBackgroundImage),
@@ -1082,12 +1087,13 @@ function applyTerminalAppearance(
   appearance: TerminalProfileAppearance | null,
   theme: TerminalColorTheme,
   configuredFontFamily: string,
+  configuredFontWeight: string,
   hasBackgroundImage: boolean,
 ) {
   terminal.options.theme = terminalTheme(theme, hasBackgroundImage);
   terminal.options.fontFamily = formatTerminalFontFamily(configuredFontFamily, appearance?.fontFamily);
   terminal.options.fontSize = terminalFontSize(appearance?.fontSize);
-  terminal.options.fontWeight = terminalFontWeight(appearance?.fontWeight);
+  terminal.options.fontWeight = terminalFontWeight(configuredFontWeight, appearance?.fontWeight);
   terminal.options.lineHeight = terminalLineHeight(appearance?.lineHeight);
 }
 
@@ -1116,7 +1122,8 @@ function terminalLineHeight(lineHeight?: number) {
     : DEFAULT_TERMINAL_LINE_HEIGHT;
 }
 
-function terminalFontWeight(fontWeight?: string): TerminalFontWeight {
+function terminalFontWeight(configuredFontWeight: string, profileFontWeight?: string): TerminalFontWeight {
+  const fontWeight = configuredFontWeight.trim() || profileFontWeight;
   if (!fontWeight) {
     return undefined;
   }

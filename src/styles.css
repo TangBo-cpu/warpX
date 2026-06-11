@@ -30,6 +30,7 @@ body {
 
 .app-shell {
   --app-font-family: Inter, "Segoe UI Variable", "Segoe UI", "Microsoft YaHei UI", "PingFang SC", system-ui, sans-serif;
+  --app-font-weight: 400;
   --terminal-profile-font-family: "JetBrainsMono Nerd Font";
   --terminal-font-family: "JetBrainsMono Nerd Font";
   --surface-app: #ffffff;
@@ -152,6 +153,7 @@ body {
   background: var(--app-background);
   color-scheme: light;
   font-family: var(--app-font-family);
+  font-weight: var(--app-font-weight);
 }
 
 .app-shell[data-theme="dark"] {

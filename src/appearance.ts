@@ -60,10 +60,14 @@ export type FontOption = {
   description: string;
 };
 
+export type FontWeightOption = FontOption;
+
 export type AppearanceSettings = TerminalThemeSettings & {
   preset: AppearancePreset;
   appFontFamily: string;
+  appFontWeight: string;
   terminalFontFamily: string;
+  terminalFontWeight: string;
   intensity: number;
   backgroundImagePath?: string;
   backgroundImageFit: BackgroundImageFit;
@@ -135,6 +139,8 @@ export const APPEARANCE_STORAGE_KEY = "wrapx-appearance";
 
 export const DEFAULT_APP_FONT_FAMILY = 'Inter, "Segoe UI Variable", "Segoe UI", "Microsoft YaHei UI", "PingFang SC", system-ui, sans-serif';
 export const DEFAULT_TERMINAL_FONT_FAMILY = "JetBrainsMono Nerd Font";
+export const DEFAULT_APP_FONT_WEIGHT = "400";
+export const DEFAULT_TERMINAL_FONT_WEIGHT = "";
 
 export const APP_FONT_OPTIONS: FontOption[] = [
   {
@@ -185,6 +191,29 @@ export const TERMINAL_FONT_OPTIONS: FontOption[] = [
     label: "Windows Terminal profile",
     description: "Follow the active Windows Terminal profile font when available.",
   },
+];
+
+export const APP_FONT_WEIGHT_OPTIONS: FontWeightOption[] = [
+  { value: "300", label: "Light", description: "Lighter UI text." },
+  { value: "400", label: "Regular", description: "Default UI text weight." },
+  { value: "500", label: "Medium", description: "Slightly stronger UI text." },
+  { value: "600", label: "Semi Bold", description: "Emphasized UI text." },
+  { value: "700", label: "Bold", description: "Heavy UI text." },
+];
+
+export const TERMINAL_FONT_WEIGHT_OPTIONS: FontWeightOption[] = [
+  {
+    value: "",
+    label: "Windows Terminal profile",
+    description: "Follow the active Windows Terminal profile weight when available.",
+  },
+  { value: "normal", label: "Normal", description: "Use the terminal renderer's normal weight." },
+  { value: "bold", label: "Bold", description: "Use the terminal renderer's bold weight." },
+  { value: "300", label: "300 Light", description: "Light terminal text." },
+  { value: "400", label: "400 Regular", description: "Regular terminal text." },
+  { value: "500", label: "500 Medium", description: "Medium terminal text." },
+  { value: "600", label: "600 Semi Bold", description: "Semi-bold terminal text." },
+  { value: "700", label: "700 Bold", description: "Bold terminal text." },
 ];
 
 export const DEFAULT_TERMINAL_THEME_ID: TerminalThemeId = "windows-terminal";
@@ -347,7 +376,9 @@ export const TERMINAL_COLOR_FIELDS: Array<{
 export const DEFAULT_APPEARANCE_SETTINGS: AppearanceSettings = {
   preset: "ivory-glass",
   appFontFamily: DEFAULT_APP_FONT_FAMILY,
+  appFontWeight: DEFAULT_APP_FONT_WEIGHT,
   terminalFontFamily: DEFAULT_TERMINAL_FONT_FAMILY,
+  terminalFontWeight: DEFAULT_TERMINAL_FONT_WEIGHT,
   intensity: 0.45,
   backgroundImageFit: "cover",
   backgroundImageAlignment: "center",
@@ -634,9 +665,15 @@ export function normalizeAppearanceSettings(value: Partial<AppearanceSettings>):
   return {
     preset: isAppearancePreset(value.preset) ? value.preset : DEFAULT_APPEARANCE_SETTINGS.preset,
     appFontFamily: normalizeFontFamily(value.appFontFamily, DEFAULT_APPEARANCE_SETTINGS.appFontFamily),
+    appFontWeight: normalizeFontWeight(value.appFontWeight, DEFAULT_APPEARANCE_SETTINGS.appFontWeight),
     terminalFontFamily: normalizeFontFamily(
       value.terminalFontFamily,
       DEFAULT_APPEARANCE_SETTINGS.terminalFontFamily,
+      true,
+    ),
+    terminalFontWeight: normalizeFontWeight(
+      value.terminalFontWeight,
+      DEFAULT_APPEARANCE_SETTINGS.terminalFontWeight,
       true,
     ),
     intensity: clamp01(value.intensity, DEFAULT_APPEARANCE_SETTINGS.intensity),
@@ -777,6 +814,7 @@ export function resolveAppearanceCssVariables(
 
   return {
     "--app-font-family": settings.appFontFamily,
+    "--app-font-weight": settings.appFontWeight,
     "--terminal-font-family": terminalFontCssVariable(settings.terminalFontFamily),
     "--appearance-base-color": preset.baseColor,
     "--appearance-gradient": preset.gradient,
@@ -909,6 +947,30 @@ function normalizeFontFamily(value: unknown, fallback: string, allowEmpty = fals
   }
 
   return fontFamily;
+}
+
+function normalizeFontWeight(value: unknown, fallback: string, allowEmpty = false) {
+  if (typeof value === "number" && Number.isInteger(value)) {
+    return normalizeFontWeight(String(value), fallback, allowEmpty);
+  }
+
+  if (typeof value !== "string") {
+    return fallback;
+  }
+
+  const fontWeight = value.trim().toLowerCase();
+  if (!fontWeight) {
+    return allowEmpty ? "" : fallback;
+  }
+
+  if (fontWeight === "normal" || fontWeight === "bold") {
+    return fontWeight;
+  }
+
+  const numericFontWeight = Number(fontWeight);
+  return Number.isInteger(numericFontWeight) && numericFontWeight >= 100 && numericFontWeight <= 900
+    ? String(numericFontWeight)
+    : fallback;
 }
 
 function terminalFontCssVariable(fontFamily: string) {
