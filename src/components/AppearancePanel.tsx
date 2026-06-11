@@ -4,15 +4,20 @@ import type {
   AppearancePreset,
   BackgroundImageAlignment,
   BackgroundImageFit,
+  FontOption,
   TerminalColorKey,
   TerminalThemeId,
 } from "../appearance";
 import {
   APPEARANCE_PRESET_OPTIONS,
   BACKGROUND_IMAGE_ALIGNMENT_OPTIONS,
+  APP_FONT_OPTIONS,
+  APP_FONT_WEIGHT_OPTIONS,
   BACKGROUND_IMAGE_FIT_OPTIONS,
   DEFAULT_APPEARANCE_SETTINGS,
   TERMINAL_COLOR_FIELDS,
+  TERMINAL_FONT_OPTIONS,
+  TERMINAL_FONT_WEIGHT_OPTIONS,
   TERMINAL_THEME_OPTIONS,
   resolveTerminalThemeColors,
 } from "../appearance";
@@ -103,6 +108,61 @@ export function AppearancePanel({
                 </option>
               ))}
             </select>
+          </SettingRow>
+        </div>
+
+        <div className="appearance-section">
+          <h2>字体</h2>
+          <SettingRow
+            title="应用字体"
+            description="控制标题栏、侧边栏和设置面板等 WrapX UI 字体。"
+            onReset={() => onChange({ appFontFamily: DEFAULT_APPEARANCE_SETTINGS.appFontFamily })}
+          >
+            <FontFamilyControl
+              listId="app-font-options"
+              options={APP_FONT_OPTIONS}
+              value={settings.appFontFamily}
+              onChange={(appFontFamily) => onChange({ appFontFamily })}
+            />
+          </SettingRow>
+
+          <SettingRow
+            title="应用字体粗细"
+            description="控制 WrapX UI 默认文本粗细。"
+            onReset={() => onChange({ appFontWeight: DEFAULT_APPEARANCE_SETTINGS.appFontWeight })}
+          >
+            <FontWeightControl
+              options={APP_FONT_WEIGHT_OPTIONS}
+              value={settings.appFontWeight}
+              onChange={(appFontWeight) => onChange({ appFontWeight })}
+            />
+          </SettingRow>
+
+          <SettingRow
+            title="终端字体"
+            description="控制 xterm 等宽字体；留空时跟随当前 Windows Terminal profile。"
+            onReset={() => onChange({ terminalFontFamily: DEFAULT_APPEARANCE_SETTINGS.terminalFontFamily })}
+          >
+            <FontFamilyControl
+              allowEmpty
+              listId="terminal-font-options"
+              options={TERMINAL_FONT_OPTIONS}
+              placeholder="Windows Terminal profile"
+              value={settings.terminalFontFamily}
+              onChange={(terminalFontFamily) => onChange({ terminalFontFamily })}
+            />
+          </SettingRow>
+
+          <SettingRow
+            title="终端字体粗细"
+            description="控制 xterm 字体粗细；默认跟随当前 Windows Terminal profile。"
+            onReset={() => onChange({ terminalFontWeight: DEFAULT_APPEARANCE_SETTINGS.terminalFontWeight })}
+          >
+            <FontWeightControl
+              options={TERMINAL_FONT_WEIGHT_OPTIONS}
+              value={settings.terminalFontWeight}
+              onChange={(terminalFontWeight) => onChange({ terminalFontWeight })}
+            />
           </SettingRow>
         </div>
 
@@ -302,6 +362,79 @@ export function AppearancePanel({
 
     await onImportImage(file);
   }
+}
+
+function FontFamilyControl({
+  allowEmpty = false,
+  listId,
+  options,
+  placeholder,
+  value,
+  onChange,
+}: {
+  allowEmpty?: boolean;
+  listId: string;
+  options: FontOption[];
+  placeholder?: string;
+  value: string;
+  onChange: (value: string) => void;
+}) {
+  return (
+    <label className="font-family-control">
+      <select
+        className="appearance-control"
+        value={options.some((option) => option.value === value) ? value : "custom"}
+        onChange={(event) => {
+          if (event.target.value !== "custom") {
+            onChange(event.target.value);
+          }
+        }}
+      >
+        {options.map((option) => (
+          <option key={option.label} value={option.value}>
+            {option.label}
+          </option>
+        ))}
+        <option value="custom">Custom</option>
+      </select>
+      <input
+        className="appearance-control"
+        list={listId}
+        placeholder={placeholder}
+        value={value}
+        onChange={(event) => onChange(allowEmpty ? event.target.value : event.target.value.trimStart())}
+      />
+      <datalist id={listId}>
+        {options.map((option) => (
+          <option key={option.label} value={option.value} label={option.description} />
+        ))}
+      </datalist>
+    </label>
+  );
+}
+
+function FontWeightControl({
+  options,
+  value,
+  onChange,
+}: {
+  options: FontOption[];
+  value: string;
+  onChange: (value: string) => void;
+}) {
+  return (
+    <select
+      className="appearance-control"
+      value={value}
+      onChange={(event) => onChange(event.target.value)}
+    >
+      {options.map((option) => (
+        <option key={option.label} value={option.value}>
+          {option.label}
+        </option>
+      ))}
+    </select>
+  );
 }
 
 function SettingRow({ title, description, children, onReset }: SettingRowProps) {
