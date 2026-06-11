@@ -242,6 +242,7 @@ export function TerminalView({
   const [terminalAppearance, setTerminalAppearance] = useState<TerminalProfileAppearance | null>(null);
   const [sidebarWidth, setSidebarWidth] = useState<number | null>(getInitialSidebarWidth);
   const [isResizingSidebar, setIsResizingSidebar] = useState(false);
+  const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
   const activeSession = sessions.find((session) => session.id === activeSessionId) ?? null;
 
   useEffect(() => {
@@ -308,6 +309,13 @@ export function TerminalView({
       requestAnimationFrame(() => fitAndResize(activeSessionId));
     }
   }, [activeSessionId]);
+
+  useEffect(() => {
+    const sessionId = activeSessionIdRef.current;
+    if (sessionId) {
+      requestAnimationFrame(() => fitAndResize(sessionId));
+    }
+  }, [isSidebarCollapsed]);
 
   useEffect(() => {
     const resize = () => {
@@ -977,7 +985,9 @@ export function TerminalView({
     }
   }
 
-  const workspaceClassName = `workspace-card${isResizingSidebar ? " is-sidebar-resizing" : ""}`;
+  const workspaceClassName = `workspace-card${isResizingSidebar ? " is-sidebar-resizing" : ""}${
+    isSidebarCollapsed ? " is-sidebar-collapsed" : ""
+  }`;
   const workspaceStyle = sidebarWidth === null
     ? undefined
     : ({ "--sidebar-width": `${sidebarWidth}px` } as CSSProperties);
@@ -986,60 +996,66 @@ export function TerminalView({
   return (
     <>
       <WindowTitlebar
+        isSidebarCollapsed={isSidebarCollapsed}
         newSessionDisabled={sessions.length >= MAX_LIVE_SESSIONS}
         theme={theme}
         onNewSession={createDefaultSession}
         onOpenAppearance={onOpenAppearance}
+        onToggleSidebar={() => setIsSidebarCollapsed((value) => !value)}
         onToggleTheme={onToggleTheme}
       />
       <section ref={workspaceRef} className={workspaceClassName} style={workspaceStyle}>
         <section className="terminal-card">
-        <div className="terminal-host-stack">
-          {sessions.length === 0 ? (
-            <div className="empty-terminal">
-              <p>Start a session to open a terminal.</p>
-              <button type="button" onClick={createDefaultSession}>
-                New session
-              </button>
-            </div>
-          ) : null}
-          {sessions.map((session) => (
+          <div className="terminal-host-stack">
+            {sessions.length === 0 ? (
+              <div className="empty-terminal">
+                <p>Start a session to open a terminal.</p>
+                <button type="button" onClick={createDefaultSession}>
+                  New session
+                </button>
+              </div>
+            ) : null}
+            {sessions.map((session) => (
+              <div
+                key={session.id}
+                ref={(element) => {
+                  hostsRef.current[session.id] = element;
+                }}
+                className={`terminal-host${session.id === activeSessionId ? " is-active" : ""}`}
+              />
+            ))}
+          </div>
+        </section>
+
+        {isSidebarCollapsed ? null : (
+          <>
             <div
-              key={session.id}
-              ref={(element) => {
-                hostsRef.current[session.id] = element;
-              }}
-              className={`terminal-host${session.id === activeSessionId ? " is-active" : ""}`}
+              aria-label="Resize sidebar"
+              aria-orientation="vertical"
+              aria-valuemax={SIDEBAR_MAX_WIDTH}
+              aria-valuemin={SIDEBAR_MIN_WIDTH}
+              aria-valuenow={sidebarValueNow}
+              className="sidebar-resizer"
+              role="separator"
+              tabIndex={0}
+              onKeyDown={handleSidebarResizeKeyDown}
+              onPointerCancel={finishSidebarResize}
+              onPointerDown={handleSidebarResizePointerDown}
+              onPointerMove={handleSidebarResizePointerMove}
+              onPointerUp={finishSidebarResize}
             />
-          ))}
-        </div>
-      </section>
 
-      <div
-        aria-label="Resize sidebar"
-        aria-orientation="vertical"
-        aria-valuemax={SIDEBAR_MAX_WIDTH}
-        aria-valuemin={SIDEBAR_MIN_WIDTH}
-        aria-valuenow={sidebarValueNow}
-        className="sidebar-resizer"
-        role="separator"
-        tabIndex={0}
-        onKeyDown={handleSidebarResizeKeyDown}
-        onPointerCancel={finishSidebarResize}
-        onPointerDown={handleSidebarResizePointerDown}
-        onPointerMove={handleSidebarResizePointerMove}
-        onPointerUp={finishSidebarResize}
-      />
-
-        <Sidebar
-          activeSessionId={activeSessionId}
-          disabled={sessions.length >= MAX_LIVE_SESSIONS}
-          sessions={sessions}
-          onAgentOverride={setAgentOverride}
-          onCloseSession={closeSession}
-          onCreateDefaultSession={createDefaultSession}
-          onSelectSession={selectSession}
-        />
+            <Sidebar
+              activeSessionId={activeSessionId}
+              disabled={sessions.length >= MAX_LIVE_SESSIONS}
+              sessions={sessions}
+              onAgentOverride={setAgentOverride}
+              onCloseSession={closeSession}
+              onCreateDefaultSession={createDefaultSession}
+              onSelectSession={selectSession}
+            />
+          </>
+        )}
       </section>
     </>
   );

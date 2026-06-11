@@ -131,6 +131,7 @@ WrapX 是 Windows app。默认不模拟 macOS 窗口控制。真实 minimize / m
 - 左侧显示当前 session 数量，例如 `0/8 sessions`。
 - 右侧提供 Appearance、theme toggle、new session `+`。
 - `Activity` 入口暂不显示；等真正有活动流功能时再加入，避免空占视觉层级。
+- Sidebar toggle 属于 Custom Windows title bar 的窗口级控制，放在最小化 / 最大化 / 关闭按钮附近；点击后临时隐藏或恢复右侧 Sessions Sidebar，让 terminal 获得完整宽度。
 
 ### 5.2 新建入口
 

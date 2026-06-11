@@ -273,6 +273,45 @@ button:focus-visible,
   background: #c42b1c;
 }
 
+.sidebar-toggle {
+  display: grid;
+  place-items: center;
+  border: 1px solid var(--topbar-control-border);
+  color: #8f98a8;
+  background: rgba(255, 255, 255, 0.035);
+}
+
+.sidebar-toggle:hover:not(:disabled) {
+  color: #f2f4f8;
+}
+
+.sidebar-toggle-icon {
+  position: relative;
+  display: block;
+  width: 15px;
+  height: 15px;
+  border: 1.5px solid currentColor;
+  border-radius: 5px;
+}
+
+.sidebar-toggle-icon::after {
+  position: absolute;
+  top: 2px;
+  bottom: 2px;
+  width: 1.5px;
+  border-radius: 999px;
+  background: currentColor;
+  content: "";
+}
+
+.sidebar-toggle-icon.is-hide::after {
+  right: 4px;
+}
+
+.sidebar-toggle-icon.is-show::after {
+  left: 4px;
+}
+
 .workspace-card,
 .appearance-panel-backdrop {
   position: relative;
@@ -456,6 +495,10 @@ button:focus-visible,
   overflow: hidden;
   border: 0;
   background: var(--frame-background);
+}
+
+.workspace-card.is-sidebar-collapsed {
+  grid-template-columns: minmax(0, 1fr);
 }
 
 .terminal-card {
