@@ -1,7 +1,23 @@
 import { getCurrentWindow } from "@tauri-apps/api/window";
 import type { MouseEvent } from "react";
 
-export function WindowTitlebar() {
+type ThemeMode = "light" | "dark";
+
+type WindowTitlebarProps = {
+  newSessionDisabled: boolean;
+  theme: ThemeMode;
+  onNewSession: () => void;
+  onOpenAppearance: () => void;
+  onToggleTheme: () => void;
+};
+
+export function WindowTitlebar({
+  newSessionDisabled,
+  theme,
+  onNewSession,
+  onOpenAppearance,
+  onToggleTheme,
+}: WindowTitlebarProps) {
   return (
     <header
       className="window-titlebar"
@@ -9,16 +25,38 @@ export function WindowTitlebar() {
       onDoubleClick={toggleMaximize}
       onMouseDown={startWindowDrag}
     >
-      <div className="window-titlebar-brand" data-tauri-drag-region title="WrapX">
-        <span className="app-mark" data-tauri-drag-region aria-hidden="true">
-          W
-        </span>
-        <span className="window-titlebar-brand-copy" data-tauri-drag-region>
-          <strong data-tauri-drag-region>WrapX</strong>
-        </span>
-      </div>
-
       <div className="window-titlebar-drag-space" data-tauri-drag-region />
+
+      <div className="window-titlebar-actions">
+        <button
+          aria-label="Open appearance settings"
+          className="titlebar-action"
+          title="Appearance"
+          type="button"
+          onClick={(event) => runTitlebarAction(event, onOpenAppearance)}
+        >
+          ⚙
+        </button>
+        <button
+          aria-label={theme === "light" ? "Switch to dark theme" : "Switch to light theme"}
+          className="titlebar-action"
+          title={theme === "light" ? "Dark theme" : "Light theme"}
+          type="button"
+          onClick={(event) => runTitlebarAction(event, onToggleTheme)}
+        >
+          {theme === "light" ? "☾" : "☀"}
+        </button>
+        <button
+          aria-label="New PowerShell session"
+          className="titlebar-action"
+          disabled={newSessionDisabled}
+          title="New PowerShell session"
+          type="button"
+          onClick={(event) => runTitlebarAction(event, onNewSession)}
+        >
+          +
+        </button>
+      </div>
 
       <div className="window-titlebar-controls">
         <button aria-label="Minimize" className="window-control" type="button" onClick={minimizeWindow}>
@@ -40,11 +78,17 @@ function startWindowDrag(event: MouseEvent<HTMLElement>) {
     return;
   }
 
-  if ((event.target as HTMLElement).closest(".window-titlebar-controls")) {
+  if ((event.target as HTMLElement).closest(".window-titlebar-actions, .window-titlebar-controls")) {
     return;
   }
 
   void getCurrentWindow().startDragging().catch(() => undefined);
+}
+
+function runTitlebarAction(event: MouseEvent<HTMLButtonElement>, action: () => void) {
+  event.preventDefault();
+  event.stopPropagation();
+  action();
 }
 
 function minimizeWindow(event: MouseEvent<HTMLButtonElement>) {

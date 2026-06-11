@@ -5,6 +5,7 @@ import type { FitAddon } from "@xterm/addon-fit";
 import type { Terminal } from "@xterm/xterm";
 import { useEffect, useRef, useState, type CSSProperties, type KeyboardEvent, type PointerEvent } from "react";
 import { Sidebar } from "./Sidebar";
+import { WindowTitlebar } from "./WindowTitlebar";
 import {
   STATUS_DISPLAY,
   formatSessionActivityAge,
@@ -983,8 +984,16 @@ export function TerminalView({
   const sidebarValueNow = Math.round(getCurrentSidebarWidth());
 
   return (
-    <section ref={workspaceRef} className={workspaceClassName} style={workspaceStyle}>
-      <section className="terminal-card">
+    <>
+      <WindowTitlebar
+        newSessionDisabled={sessions.length >= MAX_LIVE_SESSIONS}
+        theme={theme}
+        onNewSession={createDefaultSession}
+        onOpenAppearance={onOpenAppearance}
+        onToggleTheme={onToggleTheme}
+      />
+      <section ref={workspaceRef} className={workspaceClassName} style={workspaceStyle}>
+        <section className="terminal-card">
         <div className="terminal-host-stack">
           {sessions.length === 0 ? (
             <div className="empty-terminal">
@@ -1022,21 +1031,17 @@ export function TerminalView({
         onPointerUp={finishSidebarResize}
       />
 
-      <Sidebar
-        activeSessionId={activeSessionId}
-        defaultCwd={DEFAULT_CWD}
-        disabled={sessions.length >= MAX_LIVE_SESSIONS}
-        nextSessionNumber={sessionCounterRef.current}
-        sessions={sessions}
-        theme={theme}
-        onAgentOverride={setAgentOverride}
-        onCloseSession={closeSession}
-        onCreateSession={createSession}
-        onOpenAppearance={onOpenAppearance}
-        onSelectSession={selectSession}
-        onToggleTheme={onToggleTheme}
-      />
-    </section>
+        <Sidebar
+          activeSessionId={activeSessionId}
+          disabled={sessions.length >= MAX_LIVE_SESSIONS}
+          sessions={sessions}
+          onAgentOverride={setAgentOverride}
+          onCloseSession={closeSession}
+          onCreateDefaultSession={createDefaultSession}
+          onSelectSession={selectSession}
+        />
+      </section>
+    </>
   );
 }
 
