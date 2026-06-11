@@ -4659,7 +4659,7 @@ dependencies = [
 
 [[package]]
 name = "wrapx"
-version = "0.6.0-alpha.0"
+version = "0.6.0-alpha.1"
 dependencies = [
  "portable-pty",
  "serde",
