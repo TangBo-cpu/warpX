@@ -1,3 +1,5 @@
+#![cfg_attr(windows, windows_subsystem = "windows")]
+
 mod commands;
 mod process_inspector;
 mod pty_manager;
