@@ -39,7 +39,7 @@ export function WindowTitlebar({
           type="button"
           onClick={(event) => runTitlebarAction(event, onOpenAppearance)}
         >
-          ⚙
+          <GearIcon />
         </button>
         <button
           aria-label={theme === "light" ? "Switch to dark theme" : "Switch to light theme"}
@@ -48,7 +48,7 @@ export function WindowTitlebar({
           type="button"
           onClick={(event) => runTitlebarAction(event, onToggleTheme)}
         >
-          {theme === "light" ? "☾" : "☀"}
+          {theme === "light" ? <MoonIcon /> : <SunIcon />}
         </button>
         <button
           aria-label="New PowerShell session"
@@ -58,7 +58,7 @@ export function WindowTitlebar({
           type="button"
           onClick={(event) => runTitlebarAction(event, onNewSession)}
         >
-          +
+          <PlusIcon />
         </button>
       </div>
 
@@ -86,6 +86,42 @@ export function WindowTitlebar({
         </button>
       </div>
     </header>
+  );
+}
+
+function GearIcon() {
+  return (
+    <svg aria-hidden="true" className="titlebar-action-icon" viewBox="0 0 20 20">
+      <circle cx="10" cy="10" r="2.7" />
+      <path d="M10 3.2v1.7M10 15.1v1.7M4.9 4.9l1.2 1.2M13.9 13.9l1.2 1.2M3.2 10h1.7M15.1 10h1.7M4.9 15.1l1.2-1.2M13.9 6.1l1.2-1.2" />
+      <path d="M7.2 4.6 8 3.4h4l.8 1.2M15.4 7.2l1.2.8v4l-1.2.8M12.8 15.4l-.8 1.2H8l-.8-1.2M4.6 12.8 3.4 12V8l1.2-.8" />
+    </svg>
+  );
+}
+
+function MoonIcon() {
+  return (
+    <svg aria-hidden="true" className="titlebar-action-icon" viewBox="0 0 20 20">
+      <path d="M14.7 13.7A6.8 6.8 0 0 1 6.3 5.3 6.9 6.9 0 1 0 14.7 13.7Z" />
+      <path d="M13.5 4.1v1.6M12.7 4.9h1.6" />
+    </svg>
+  );
+}
+
+function SunIcon() {
+  return (
+    <svg aria-hidden="true" className="titlebar-action-icon" viewBox="0 0 20 20">
+      <circle cx="10" cy="10" r="3.2" />
+      <path d="M10 2.8v2M10 15.2v2M2.8 10h2M15.2 10h2M4.9 4.9l1.4 1.4M13.7 13.7l1.4 1.4M4.9 15.1l1.4-1.4M13.7 6.3l1.4-1.4" />
+    </svg>
+  );
+}
+
+function PlusIcon() {
+  return (
+    <svg aria-hidden="true" className="titlebar-action-icon" viewBox="0 0 20 20">
+      <path d="M10 4.6v10.8M4.6 10h10.8" />
+    </svg>
   );
 }
 

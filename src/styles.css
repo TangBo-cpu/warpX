@@ -30,6 +30,7 @@ body {
 
 .app-shell {
   --app-font-family: Inter, "Segoe UI Variable", "Segoe UI", "Microsoft YaHei UI", "PingFang SC", system-ui, sans-serif;
+  --display-font-family: "Georgia", "Times New Roman", "Songti SC", "SimSun", serif;
   --app-font-weight: 400;
   --terminal-profile-font-family: "JetBrainsMono Nerd Font";
   --terminal-font-family: "JetBrainsMono Nerd Font";
@@ -289,13 +290,25 @@ button:focus-visible,
 .sidebar-toggle {
   display: grid;
   place-items: center;
-  border: 1px solid var(--topbar-control-border);
-  color: #8f98a8;
-  background: rgba(255, 255, 255, 0.035);
+  border: 1px solid color-mix(in srgb, var(--topbar-control-border) 76%, rgba(255, 255, 255, 0.28));
+  color: color-mix(in srgb, var(--topbar-control-fg) 86%, #ffffff);
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.13), rgba(255, 255, 255, 0.035)),
+    var(--topbar-control-bg);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.16),
+    0 8px 18px rgba(0, 0, 0, 0.08);
 }
 
 .sidebar-toggle:hover:not(:disabled) {
-  color: #f2f4f8;
+  color: var(--topbar-control-hover-fg);
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.2), rgba(255, 255, 255, 0.06)),
+    var(--topbar-control-hover-bg);
+  border-color: var(--topbar-control-hover-border);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.22),
+    0 10px 24px rgba(0, 0, 0, 0.12);
 }
 
 .sidebar-toggle-icon {
@@ -303,15 +316,16 @@ button:focus-visible,
   display: block;
   width: 15px;
   height: 15px;
-  border: 1.5px solid currentColor;
+  border: 1.55px solid currentColor;
   border-radius: 5px;
+  filter: drop-shadow(0 1px 1px rgba(0, 0, 0, 0.16));
 }
 
 .sidebar-toggle-icon::after {
   position: absolute;
   top: 2px;
   bottom: 2px;
-  width: 1.5px;
+  width: 1.55px;
   border-radius: 999px;
   background: currentColor;
   content: "";
@@ -421,13 +435,39 @@ button:focus-visible,
   width: 28px;
   height: 28px;
   place-items: center;
-  border: 1px solid var(--topbar-control-border);
-  border-radius: 8px;
+  border: 1px solid color-mix(in srgb, var(--topbar-control-border) 76%, rgba(255, 255, 255, 0.28));
+  border-radius: 10px;
   padding: 0;
-  color: var(--topbar-control-fg);
-  background: var(--topbar-control-bg);
+  color: color-mix(in srgb, var(--topbar-control-fg) 86%, #ffffff);
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.13), rgba(255, 255, 255, 0.035)),
+    var(--topbar-control-bg);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.16),
+    0 8px 18px rgba(0, 0, 0, 0.08);
   font-size: 13px;
   line-height: 1;
+  transition:
+    border-color 140ms ease,
+    box-shadow 140ms ease,
+    color 140ms ease,
+    transform 140ms ease,
+    background 140ms ease;
+}
+
+.titlebar-action-icon {
+  width: 15px;
+  height: 15px;
+  fill: none;
+  stroke: currentColor;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  stroke-width: 1.65;
+  filter: drop-shadow(0 1px 1px rgba(0, 0, 0, 0.16));
+}
+
+.titlebar-action-icon circle {
+  fill: none;
 }
 
 .icon-button:hover:not(:disabled),
@@ -435,8 +475,14 @@ button:focus-visible,
 .session-menu-trigger:hover:not(:disabled),
 .appearance-close:hover:not(:disabled) {
   color: var(--topbar-control-hover-fg);
-  background: var(--topbar-control-hover-bg);
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.2), rgba(255, 255, 255, 0.06)),
+    var(--topbar-control-hover-bg);
   border-color: var(--topbar-control-hover-border);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.22),
+    0 10px 24px rgba(0, 0, 0, 0.12);
+  transform: translateY(-1px);
 }
 
 .app-menu {
@@ -803,9 +849,17 @@ button:focus-visible,
 }
 
 .empty-terminal p {
+  max-width: min(520px, 74vw);
   margin: 0;
-  color: #a6adba;
-  font-size: 15px;
+  color: color-mix(in srgb, #fffaf2 76%, var(--empty-text));
+  font-family: var(--display-font-family);
+  font-size: clamp(18px, 2.2vw, 28px);
+  font-weight: 700;
+  letter-spacing: 0.01em;
+  line-height: 1.18;
+  text-shadow:
+    0 1px 2px rgba(0, 0, 0, 0.42),
+    0 8px 28px rgba(0, 0, 0, 0.28);
 }
 
 .empty-terminal button,
@@ -842,20 +896,30 @@ button:focus-visible,
   align-content: center;
   min-height: 180px;
   gap: 8px;
-  border: 1px dashed rgba(255, 255, 255, 0.1);
-  border-radius: 14px;
+  border: 1px dashed rgba(255, 255, 255, 0.12);
+  border-radius: 16px;
   padding: 18px 14px;
-  color: #8f98a8;
+  color: #aab2c0;
+  background: rgba(255, 255, 255, 0.025);
   text-align: center;
 }
 
 .empty-sidebar strong {
-  color: #f2f4f8;
-  font-size: 14px;
+  color: #fff7ed;
+  font-family: var(--display-font-family);
+  font-size: 16px;
+  font-weight: 700;
+  letter-spacing: 0.01em;
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.28);
 }
 
 .empty-sidebar span {
-  font-size: 12px;
+  color: rgba(255, 250, 242, 0.72);
+  font-family: var(--display-font-family);
+  font-size: 13px;
+  font-weight: 600;
+  letter-spacing: 0.01em;
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.28);
 }
 
 .session-card {
