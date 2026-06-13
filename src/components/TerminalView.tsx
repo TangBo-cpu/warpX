@@ -56,6 +56,13 @@ type TerminalModules = {
 
 type TerminalOptions = NonNullable<ConstructorParameters<TerminalModules["Terminal"]>[0]>;
 type TerminalFontWeight = TerminalOptions["fontWeight"];
+type SplitPaneIds = [string, string];
+type TerminalShortcutHandlers = {
+  resetTerminalZoom: () => void;
+  toggleSplitPane: () => void;
+  zoomTerminalIn: () => void;
+  zoomTerminalOut: () => void;
+};
 
 const DEFAULT_CWD = "E:\\Code-All\\wrapx";
 const MAX_LIVE_SESSIONS = 8;
@@ -82,6 +89,10 @@ const TERMINAL_FONT_FALLBACKS = [
 const DEFAULT_TERMINAL_FONT_SIZE = 14;
 const MIN_TERMINAL_FONT_SIZE = 6;
 const MAX_TERMINAL_FONT_SIZE = 72;
+const TERMINAL_ZOOM_STORAGE_KEY = "wrapx-terminal-font-size-delta";
+const TERMINAL_ZOOM_STEP = 1;
+const MIN_TERMINAL_FONT_SIZE_DELTA = -8;
+const MAX_TERMINAL_FONT_SIZE_DELTA = 24;
 const DEFAULT_TERMINAL_LINE_HEIGHT = 1;
 const MIN_TERMINAL_LINE_HEIGHT = 0.8;
 const MAX_TERMINAL_LINE_HEIGHT = 2;
@@ -145,12 +156,30 @@ function getInitialSidebarWidth() {
   }
 }
 
+function getInitialTerminalFontSizeDelta() {
+  try {
+    const storedDelta = window.localStorage.getItem(TERMINAL_ZOOM_STORAGE_KEY);
+    if (!storedDelta) {
+      return 0;
+    }
+
+    return clampTerminalFontSizeDelta(Number(storedDelta));
+  } catch {
+    return 0;
+  }
+}
+
 function clampSidebarWidth(width: number, maxWidth = SIDEBAR_MAX_WIDTH) {
   const safeMaxWidth = Number.isFinite(maxWidth)
     ? Math.max(SIDEBAR_MIN_WIDTH, Math.min(SIDEBAR_MAX_WIDTH, maxWidth))
     : SIDEBAR_MAX_WIDTH;
   const safeWidth = Number.isFinite(width) ? width : SIDEBAR_FALLBACK_WIDTH;
   return Math.round(Math.min(Math.max(safeWidth, SIDEBAR_MIN_WIDTH), safeMaxWidth));
+}
+
+function clampTerminalFontSizeDelta(delta: number) {
+  const safeDelta = Number.isFinite(delta) ? delta : 0;
+  return Math.round(Math.min(Math.max(safeDelta, MIN_TERMINAL_FONT_SIZE_DELTA), MAX_TERMINAL_FONT_SIZE_DELTA));
 }
 
 export function TerminalView({
@@ -169,6 +198,8 @@ export function TerminalView({
   const terminalThemeRef = useRef<TerminalColorTheme>(resolveTerminalThemeColors(appearance));
   const terminalFontFamilyRef = useRef(appearance.terminalFontFamily);
   const terminalFontWeightRef = useRef(appearance.terminalFontWeight);
+  const terminalFontSizeDeltaRef = useRef(getInitialTerminalFontSizeDelta());
+  const splitPaneIdsRef = useRef<SplitPaneIds | null>(null);
   const hasBackgroundImageRef = useRef(hasBackgroundImage);
   const appCloseInProgressRef = useRef(false);
   const closedSessionIdsRef = useRef(new Set<string>());
@@ -180,6 +211,8 @@ export function TerminalView({
   const [activeSessionId, setActiveSessionId] = useState<string | null>(null);
   const [terminalAppearance, setTerminalAppearance] = useState<TerminalProfileAppearance | null>(null);
   const [sidebarWidth, setSidebarWidth] = useState<number | null>(getInitialSidebarWidth);
+  const [terminalFontSizeDelta, setTerminalFontSizeDelta] = useState(terminalFontSizeDeltaRef.current);
+  const [splitPaneIds, setSplitPaneIds] = useState<SplitPaneIds | null>(null);
   const [isResizingSidebar, setIsResizingSidebar] = useState(false);
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
   const activeSession = sessions.find((session) => session.id === activeSessionId) ?? null;
@@ -204,6 +237,18 @@ export function TerminalView({
   }, [sessions]);
 
   useEffect(() => {
+    const currentPaneIds = splitPaneIdsRef.current;
+    if (!currentPaneIds) {
+      return;
+    }
+
+    const liveIds = new Set(sessions.map((session) => session.id));
+    if (!currentPaneIds.every((sessionId) => liveIds.has(sessionId))) {
+      setSplitPane(null);
+    }
+  }, [sessions]);
+
+  useEffect(() => {
     const resolvedTerminalTheme = resolveTerminalThemeColors(appearance, terminalAppearance?.theme);
     terminalAppearanceRef.current = terminalAppearance;
     terminalThemeRef.current = resolvedTerminalTheme;
@@ -211,17 +256,21 @@ export function TerminalView({
     terminalFontWeightRef.current = appearance.terminalFontWeight;
     hasBackgroundImageRef.current = hasBackgroundImage;
 
-    terminalRuntimesRef.current.forEach(({ terminal }) => {
+    terminalRuntimesRef.current.forEach(({ terminal }, sessionId) => {
       applyTerminalAppearance(
         terminal,
         terminalAppearance,
         resolvedTerminalTheme,
         appearance.terminalFontFamily,
         appearance.terminalFontWeight,
+        terminalFontSizeDelta,
         hasBackgroundImage,
       );
+      applyTerminalHostFontWeight(sessionId, appearance.terminalFontWeight, terminalAppearance?.fontWeight);
     });
-  }, [appearance, hasBackgroundImage, terminalAppearance]);
+
+    requestAnimationFrame(() => fitVisibleTerminals());
+  }, [appearance, hasBackgroundImage, terminalAppearance, terminalFontSizeDelta]);
 
   useEffect(() => {
     let cancelled = false;
@@ -242,16 +291,11 @@ export function TerminalView({
 
   useEffect(() => {
     activeSessionIdRef.current = activeSessionId;
-    if (activeSessionId) {
-      requestAnimationFrame(() => fitAndResize(activeSessionId));
-    }
-  }, [activeSessionId]);
+    requestAnimationFrame(() => fitVisibleTerminals());
+  }, [activeSessionId, splitPaneIds]);
 
   useEffect(() => {
-    const sessionId = activeSessionIdRef.current;
-    if (sessionId) {
-      requestAnimationFrame(() => fitAndResize(sessionId));
-    }
+    requestAnimationFrame(() => fitVisibleTerminals());
   }, [isSidebarCollapsed]);
 
   useEffect(() => {
@@ -264,15 +308,34 @@ export function TerminalView({
         return clampSidebarWidth(currentWidth, getSidebarMaxWidth());
       });
 
-      const sessionId = activeSessionIdRef.current;
-      if (sessionId) {
-        fitAndResize(sessionId);
-      }
+      fitVisibleTerminals();
     };
 
     resize();
     window.addEventListener("resize", resize);
     return () => window.removeEventListener("resize", resize);
+  }, []);
+
+  useEffect(() => {
+    function handleGlobalKeyDown(event: globalThis.KeyboardEvent) {
+      const target = event.target as HTMLElement | null;
+      if (
+        target?.closest(".terminal-host .xterm") ||
+        target?.closest("input, textarea, select, [contenteditable='true']")
+      ) {
+        return;
+      }
+
+      handleTerminalShortcut(event, {
+        resetTerminalZoom,
+        toggleSplitPane,
+        zoomTerminalIn,
+        zoomTerminalOut,
+      });
+    }
+
+    window.addEventListener("keydown", handleGlobalKeyDown);
+    return () => window.removeEventListener("keydown", handleGlobalKeyDown);
   }, []);
 
   useEffect(() => {
@@ -431,9 +494,9 @@ export function TerminalView({
     void createSession(`PowerShell ${sessionCounterRef.current}`, DEFAULT_CWD);
   }
 
-  async function createSession(name: string, cwd: string) {
+  async function createSession(name: string, cwd: string, activate = true) {
     if (sessionsRef.current.length >= MAX_LIVE_SESSIONS) {
-      return;
+      return null;
     }
 
     const sessionId = `session-${Date.now()}-${sessionCounterRef.current}`;
@@ -453,7 +516,9 @@ export function TerminalView({
     };
 
     replaceSessions([...sessionsRef.current, session]);
-    setActiveSession(sessionId);
+    if (activate) {
+      setActiveSession(sessionId);
+    }
 
     requestAnimationFrame(async () => {
       const host = hostsRef.current[sessionId];
@@ -477,6 +542,7 @@ export function TerminalView({
             terminalThemeRef.current,
             terminalFontFamilyRef.current,
             terminalFontWeightRef.current,
+            terminalFontSizeDeltaRef.current,
             hasBackgroundImageRef.current,
             () => canWriteToSession(sessionId),
           );
@@ -486,6 +552,10 @@ export function TerminalView({
             clearTerminal,
             copyTerminalSelection,
             pasteClipboardText,
+            resetTerminalZoom,
+            toggleSplitPane,
+            zoomTerminalIn,
+            zoomTerminalOut,
           });
           terminalRuntimesRef.current.set(sessionId, { terminal, fitAddon });
           runtime = { terminal, fitAddon };
@@ -499,6 +569,11 @@ export function TerminalView({
         }
       }
 
+      applyTerminalHostFontWeight(
+        sessionId,
+        terminalFontWeightRef.current,
+        terminalAppearanceRef.current?.fontWeight,
+      );
       runtime.terminal.open(host);
       runtime.fitAddon.fit();
 
@@ -537,6 +612,8 @@ export function TerminalView({
         runtime.terminal.writeln(`\r\n[wrapx] start failed: ${String(error)}`);
       }
     });
+
+    return sessionId;
   }
 
   async function closeSession(sessionId: string) {
@@ -586,8 +663,11 @@ export function TerminalView({
 
   function selectSession(sessionId: string) {
     setActiveSession(sessionId);
+    if (!splitPaneIds?.includes(sessionId)) {
+      setSplitPane(null);
+    }
     requestAnimationFrame(() => {
-      fitAndResize(sessionId);
+      fitVisibleTerminals();
       terminalRuntimesRef.current.get(sessionId)?.terminal.focus();
     });
   }
@@ -600,6 +680,11 @@ export function TerminalView({
   function setActiveSession(sessionId: string | null) {
     activeSessionIdRef.current = sessionId;
     setActiveSessionId(sessionId);
+  }
+
+  function setSplitPane(paneIds: SplitPaneIds | null) {
+    splitPaneIdsRef.current = paneIds;
+    setSplitPaneIds(paneIds);
   }
 
   function hasSession(sessionId: string) {
@@ -652,6 +737,64 @@ export function TerminalView({
     focusActiveTerminal();
   }
 
+  function updateTerminalZoom(nextDelta: number) {
+    const clampedDelta = clampTerminalFontSizeDelta(nextDelta);
+    terminalFontSizeDeltaRef.current = clampedDelta;
+    setTerminalFontSizeDelta(clampedDelta);
+
+    try {
+      window.localStorage.setItem(TERMINAL_ZOOM_STORAGE_KEY, String(clampedDelta));
+    } catch {
+      // Terminal zoom persistence is a convenience; live zoom should still work.
+    }
+
+    requestAnimationFrame(() => fitVisibleTerminals());
+  }
+
+  function zoomTerminalIn() {
+    updateTerminalZoom(terminalFontSizeDeltaRef.current + TERMINAL_ZOOM_STEP);
+  }
+
+  function zoomTerminalOut() {
+    updateTerminalZoom(terminalFontSizeDeltaRef.current - TERMINAL_ZOOM_STEP);
+  }
+
+  function resetTerminalZoom() {
+    updateTerminalZoom(0);
+  }
+
+  function toggleSplitPane() {
+    if (splitPaneIdsRef.current) {
+      setSplitPane(null);
+      requestAnimationFrame(() => fitVisibleTerminals());
+      return;
+    }
+
+    const liveSessions = sessionsRef.current.filter((session) => isLiveSessionStatus(session.status));
+    const activeSessionId = activeSessionIdRef.current ?? liveSessions[0]?.id;
+    if (!activeSessionId) {
+      createDefaultSession();
+      return;
+    }
+
+    const secondarySession = liveSessions.find((session) => session.id !== activeSessionId);
+    if (secondarySession) {
+      setSplitPane([activeSessionId, secondarySession.id]);
+      requestAnimationFrame(() => fitVisibleTerminals());
+      return;
+    }
+
+    void createSession(`PowerShell ${sessionCounterRef.current}`, DEFAULT_CWD, false).then((newSessionId) => {
+      if (!newSessionId || !hasSession(activeSessionId)) {
+        return;
+      }
+
+      setSplitPane([activeSessionId, newSessionId]);
+      setActiveSession(activeSessionId);
+      requestAnimationFrame(() => fitVisibleTerminals());
+    });
+  }
+
   function getSidebarMaxWidth() {
     const workspace = workspaceRef.current;
     if (!workspace) {
@@ -702,10 +845,7 @@ export function TerminalView({
 
     sidebarResizeFrameRef.current = requestAnimationFrame(() => {
       sidebarResizeFrameRef.current = null;
-      const sessionId = activeSessionIdRef.current;
-      if (sessionId) {
-        fitAndResize(sessionId);
-      }
+      fitVisibleTerminals();
     });
   }
 
@@ -764,6 +904,32 @@ export function TerminalView({
 
     event.preventDefault();
     persistSidebarWidth(updateSidebarWidth(nextWidth));
+  }
+
+  function applyTerminalHostFontWeight(sessionId: string, configuredFontWeight: string, profileFontWeight?: string) {
+    const host = hostsRef.current[sessionId];
+    const fontWeight = terminalFontWeight(configuredFontWeight, profileFontWeight);
+    if (!host) {
+      return;
+    }
+
+    if (fontWeight) {
+      host.style.setProperty("--terminal-font-weight", String(fontWeight));
+    } else {
+      host.style.removeProperty("--terminal-font-weight");
+    }
+  }
+
+  function fitVisibleTerminals() {
+    getVisibleTerminalIds().forEach((sessionId) => fitAndResize(sessionId));
+  }
+
+  function getVisibleTerminalIds() {
+    if (splitPaneIds) {
+      return splitPaneIds;
+    }
+
+    return activeSessionIdRef.current ? [activeSessionIdRef.current] : [];
   }
 
   function fitAndResize(sessionId: string) {
@@ -925,9 +1091,11 @@ export function TerminalView({
     }
   }
 
+  const visibleTerminalIds = new Set(splitPaneIds ?? (activeSessionId ? [activeSessionId] : []));
   const workspaceClassName = `workspace-card${isResizingSidebar ? " is-sidebar-resizing" : ""}${
     isSidebarCollapsed ? " is-sidebar-collapsed" : ""
   }`;
+  const terminalHostStackClassName = `terminal-host-stack${splitPaneIds ? " is-split" : ""}`;
   const workspaceStyle = sidebarWidth === null
     ? undefined
     : ({ "--sidebar-width": `${sidebarWidth}px` } as CSSProperties);
@@ -941,12 +1109,16 @@ export function TerminalView({
         theme={theme}
         onNewSession={createDefaultSession}
         onOpenAppearance={onOpenAppearance}
+        onResetTerminalZoom={resetTerminalZoom}
         onToggleSidebar={() => setIsSidebarCollapsed((value) => !value)}
+        onToggleSplitPane={toggleSplitPane}
         onToggleTheme={onToggleTheme}
+        onZoomTerminalIn={zoomTerminalIn}
+        onZoomTerminalOut={zoomTerminalOut}
       />
       <section ref={workspaceRef} className={workspaceClassName} style={workspaceStyle}>
         <section className="terminal-card">
-          <div className="terminal-host-stack">
+          <div className={terminalHostStackClassName}>
             {sessions.length === 0 ? (
               <div className="empty-terminal">
                 <p>Start a session to open a terminal.</p>
@@ -961,7 +1133,7 @@ export function TerminalView({
                 ref={(element) => {
                   hostsRef.current[session.id] = element;
                 }}
-                className={`terminal-host${session.id === activeSessionId ? " is-active" : ""}`}
+                className={`terminal-host${visibleTerminalIds.has(session.id) ? " is-active" : ""}${splitPaneIds?.includes(session.id) ? " is-split-pane" : ""}`}
               />
             ))}
           </div>
@@ -1008,11 +1180,19 @@ function attachTerminalKeys(
     clearTerminal: (sessionId: string) => void;
     copyTerminalSelection: (sessionId: string) => Promise<void>;
     pasteClipboardText: (sessionId: string) => Promise<void>;
+    resetTerminalZoom: () => void;
+    toggleSplitPane: () => void;
+    zoomTerminalIn: () => void;
+    zoomTerminalOut: () => void;
   },
 ) {
   terminal.attachCustomKeyEventHandler((event) => {
     if (event.type !== "keydown") {
       return true;
+    }
+
+    if (handleTerminalShortcut(event, handlers)) {
+      return false;
     }
 
     const key = event.key.toLowerCase();
@@ -1038,6 +1218,38 @@ function attachTerminalKeys(
   });
 }
 
+function handleTerminalShortcut(
+  event: Pick<globalThis.KeyboardEvent, "altKey" | "ctrlKey" | "key" | "metaKey" | "preventDefault" | "shiftKey">,
+  handlers: TerminalShortcutHandlers,
+) {
+  const key = event.key.toLowerCase();
+  if (event.ctrlKey && !event.altKey && !event.metaKey && (key === "=" || key === "+")) {
+    event.preventDefault();
+    handlers.zoomTerminalIn();
+    return true;
+  }
+
+  if (event.ctrlKey && !event.altKey && !event.metaKey && !event.shiftKey && key === "-") {
+    event.preventDefault();
+    handlers.zoomTerminalOut();
+    return true;
+  }
+
+  if (event.ctrlKey && !event.altKey && !event.metaKey && !event.shiftKey && key === "0") {
+    event.preventDefault();
+    handlers.resetTerminalZoom();
+    return true;
+  }
+
+  if (event.ctrlKey && event.shiftKey && !event.altKey && !event.metaKey && key === "d") {
+    event.preventDefault();
+    handlers.toggleSplitPane();
+    return true;
+  }
+
+  return false;
+}
+
 function createTerminal(
   TerminalConstructor: TerminalModules["Terminal"],
   sessionId: string,
@@ -1046,17 +1258,20 @@ function createTerminal(
   theme: TerminalColorTheme,
   configuredFontFamily: string,
   configuredFontWeight: string,
+  fontSizeDelta: number,
   hasBackgroundImage: boolean,
   canWrite: () => boolean,
 ) {
   let warnedReadonly = false;
+  const fontWeight = terminalFontWeight(configuredFontWeight, appearance?.fontWeight);
   const terminal = new TerminalConstructor({
     allowTransparency: true,
     cursorBlink: true,
     convertEol: true,
     fontFamily: formatTerminalFontFamily(configuredFontFamily, appearance?.fontFamily),
-    fontSize: terminalFontSize(appearance?.fontSize),
-    fontWeight: terminalFontWeight(configuredFontWeight, appearance?.fontWeight),
+    fontSize: terminalFontSize(appearance?.fontSize, fontSizeDelta),
+    fontWeight,
+    fontWeightBold: fontWeight,
     lineHeight: terminalLineHeight(appearance?.lineHeight),
     scrollback: 10_000,
     theme: terminalTheme(theme, hasBackgroundImage),
@@ -1088,13 +1303,18 @@ function applyTerminalAppearance(
   theme: TerminalColorTheme,
   configuredFontFamily: string,
   configuredFontWeight: string,
+  fontSizeDelta: number,
   hasBackgroundImage: boolean,
 ) {
+  const fontWeight = terminalFontWeight(configuredFontWeight, appearance?.fontWeight);
+
   terminal.options.theme = terminalTheme(theme, hasBackgroundImage);
   terminal.options.fontFamily = formatTerminalFontFamily(configuredFontFamily, appearance?.fontFamily);
-  terminal.options.fontSize = terminalFontSize(appearance?.fontSize);
-  terminal.options.fontWeight = terminalFontWeight(configuredFontWeight, appearance?.fontWeight);
+  terminal.options.fontSize = terminalFontSize(appearance?.fontSize, fontSizeDelta);
+  terminal.options.fontWeight = fontWeight;
+  terminal.options.fontWeightBold = fontWeight;
   terminal.options.lineHeight = terminalLineHeight(appearance?.lineHeight);
+  terminal.refresh(0, Math.max(0, terminal.rows - 1));
 }
 
 function terminalTheme(theme: TerminalColorTheme, hasBackgroundImage: boolean): TerminalColorTheme {
@@ -1104,13 +1324,15 @@ function terminalTheme(theme: TerminalColorTheme, hasBackgroundImage: boolean): 
   };
 }
 
-function terminalFontSize(fontSize?: number) {
-  return typeof fontSize === "number" &&
+function terminalFontSize(fontSize?: number, fontSizeDelta = 0) {
+  const baseFontSize = typeof fontSize === "number" &&
     Number.isFinite(fontSize) &&
     fontSize >= MIN_TERMINAL_FONT_SIZE &&
     fontSize <= MAX_TERMINAL_FONT_SIZE
     ? fontSize
     : DEFAULT_TERMINAL_FONT_SIZE;
+
+  return Math.min(MAX_TERMINAL_FONT_SIZE, Math.max(MIN_TERMINAL_FONT_SIZE, baseFontSize + fontSizeDelta));
 }
 
 function terminalLineHeight(lineHeight?: number) {
