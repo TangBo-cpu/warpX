@@ -1,7 +1,8 @@
-import avatarCodeRanger from "./assets/status-avatars/avatar-code-ranger.png";
-import avatarHelperAlchemist from "./assets/status-avatars/avatar-helper-alchemist.png";
-import avatarNightArchivist from "./assets/status-avatars/avatar-night-archivist.png";
-import avatarTerminalMage from "./assets/status-avatars/avatar-terminal-mage.png";
+import avatarRezeModern1 from "./assets/status-avatars/reze-modern/thumbs/reze-modern-1-thumb.jpg";
+import avatarRezeModern2 from "./assets/status-avatars/reze-modern/thumbs/reze-modern-2-thumb.jpg";
+import avatarRezeModern3 from "./assets/status-avatars/reze-modern/thumbs/reze-modern-3-thumb.jpg";
+import avatarRezeModern4 from "./assets/status-avatars/reze-modern/thumbs/reze-modern-4-thumb.jpg";
+import avatarRezeModern5 from "./assets/status-avatars/reze-modern/thumbs/reze-modern-5-thumb.jpg";
 import type { AgentKind, Session, SessionStatus } from "./types/session";
 
 type AgentDisplay = {
@@ -15,10 +16,11 @@ type StatusDisplay = {
 };
 
 export type SessionAvatarKey =
-  | "terminal-mage"
-  | "helper-alchemist"
-  | "code-ranger"
-  | "night-archivist";
+  | "reze-modern-1"
+  | "reze-modern-2"
+  | "reze-modern-3"
+  | "reze-modern-4"
+  | "reze-modern-5";
 
 export type SessionAvatarDisplay = {
   key: SessionAvatarKey;
@@ -55,29 +57,35 @@ export const AGENT_DISPLAY: Record<AgentKind, AgentDisplay> = {
 };
 
 export const SESSION_AVATAR_DISPLAY: Record<SessionAvatarKey, SessionAvatarDisplay> = {
-  "terminal-mage": {
-    key: "terminal-mage",
-    label: "terminal-mage",
-    glyph: "TM",
-    imageUrl: avatarTerminalMage,
+  "reze-modern-1": {
+    key: "reze-modern-1",
+    label: "reze-modern-1",
+    glyph: "R1",
+    imageUrl: avatarRezeModern1,
   },
-  "helper-alchemist": {
-    key: "helper-alchemist",
-    label: "helper-alchemist",
-    glyph: "HA",
-    imageUrl: avatarHelperAlchemist,
+  "reze-modern-2": {
+    key: "reze-modern-2",
+    label: "reze-modern-2",
+    glyph: "R2",
+    imageUrl: avatarRezeModern2,
   },
-  "code-ranger": {
-    key: "code-ranger",
-    label: "code-ranger",
-    glyph: "CR",
-    imageUrl: avatarCodeRanger,
+  "reze-modern-3": {
+    key: "reze-modern-3",
+    label: "reze-modern-3",
+    glyph: "R3",
+    imageUrl: avatarRezeModern3,
   },
-  "night-archivist": {
-    key: "night-archivist",
-    label: "night-archivist",
-    glyph: "NA",
-    imageUrl: avatarNightArchivist,
+  "reze-modern-4": {
+    key: "reze-modern-4",
+    label: "reze-modern-4",
+    glyph: "R4",
+    imageUrl: avatarRezeModern4,
+  },
+  "reze-modern-5": {
+    key: "reze-modern-5",
+    label: "reze-modern-5",
+    glyph: "R5",
+    imageUrl: avatarRezeModern5,
   },
 };
 
