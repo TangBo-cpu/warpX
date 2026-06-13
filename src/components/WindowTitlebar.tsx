@@ -9,8 +9,12 @@ type WindowTitlebarProps = {
   theme: ThemeMode;
   onNewSession: () => void;
   onOpenAppearance: () => void;
+  onResetTerminalZoom: () => void;
   onToggleSidebar: () => void;
+  onToggleSplitPane: () => void;
   onToggleTheme: () => void;
+  onZoomTerminalIn: () => void;
+  onZoomTerminalOut: () => void;
 };
 
 export function WindowTitlebar({
@@ -19,8 +23,12 @@ export function WindowTitlebar({
   theme,
   onNewSession,
   onOpenAppearance,
+  onResetTerminalZoom,
   onToggleSidebar,
+  onToggleSplitPane,
   onToggleTheme,
+  onZoomTerminalIn,
+  onZoomTerminalOut,
 }: WindowTitlebarProps) {
   return (
     <header
@@ -49,6 +57,42 @@ export function WindowTitlebar({
           onClick={(event) => runTitlebarAction(event, onToggleTheme)}
         >
           {theme === "light" ? <MoonIcon /> : <SunIcon />}
+        </button>
+        <button
+          aria-label="Zoom terminal out"
+          className="titlebar-action titlebar-text-action"
+          title="Zoom out (Ctrl+-)"
+          type="button"
+          onClick={(event) => runTitlebarAction(event, onZoomTerminalOut)}
+        >
+          −
+        </button>
+        <button
+          aria-label="Reset terminal zoom"
+          className="titlebar-action titlebar-text-action"
+          title="Reset zoom (Ctrl+0)"
+          type="button"
+          onClick={(event) => runTitlebarAction(event, onResetTerminalZoom)}
+        >
+          100
+        </button>
+        <button
+          aria-label="Zoom terminal in"
+          className="titlebar-action titlebar-text-action"
+          title="Zoom in (Ctrl+=)"
+          type="button"
+          onClick={(event) => runTitlebarAction(event, onZoomTerminalIn)}
+        >
+          +
+        </button>
+        <button
+          aria-label="Toggle terminal split pane"
+          className="titlebar-action"
+          title="Split pane (Ctrl+Shift+D)"
+          type="button"
+          onClick={(event) => runTitlebarAction(event, onToggleSplitPane)}
+        >
+          <SplitPaneIcon />
         </button>
         <button
           aria-label="New PowerShell session"
@@ -121,6 +165,15 @@ function PlusIcon() {
   return (
     <svg aria-hidden="true" className="titlebar-action-icon" viewBox="0 0 20 20">
       <path d="M10 4.6v10.8M4.6 10h10.8" />
+    </svg>
+  );
+}
+
+function SplitPaneIcon() {
+  return (
+    <svg aria-hidden="true" className="titlebar-action-icon" viewBox="0 0 20 20">
+      <path d="M4 4.8h12v10.4H4z" />
+      <path d="M10 4.8v10.4" />
     </svg>
   );
 }
