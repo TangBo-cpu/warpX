@@ -75,23 +75,25 @@ export function SessionCard({
       }}
     >
       <span className={`session-avatar is-${avatar.key}`} title={avatar.label} aria-hidden="true">
-        <img alt="" src={avatar.imageUrl} />
+        <img alt="" decoding="sync" loading="eager" src={avatar.imageUrl} />
       </span>
 
       <span className="session-card-main">
         <span className="session-card-topline">
           <span className="session-name">{session.name}</span>
-          <span className={`session-status is-${session.status}`}>{status.label}</span>
-          {age ? <span className="session-age">{age}</span> : null}
+          <span className="session-card-state">
+            <span className={`session-status is-${session.status}`}>{status.label}</span>
+            {age ? <span className="session-age">{age}</span> : null}
+          </span>
         </span>
 
         <span className="session-card-meta">
           <span title={session.cwd}>{cwdLabel}</span>
           <span aria-hidden="true">·</span>
           <span>{agent.label}</span>
-          <span aria-hidden="true">·</span>
-          <span title={message}>{message}</span>
         </span>
+
+        <span className="session-card-message" title={message}>{message}</span>
       </span>
 
       <span
